@@ -105,7 +105,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileNav }) => {
                   >
                     <span className="text-base">{acc.label.split(' ')[0]}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="leading-none font-semibold truncate">{acc.label.substring(3)}</p>
+                      <p className="leading-none font-semibold truncate">{acc.label.replace(/^[^\s]+\s+/, '')}</p>
                       <p className="text-[10px] text-slate-500 truncate mt-0.5">{acc.email}</p>
                     </div>
                   </button>

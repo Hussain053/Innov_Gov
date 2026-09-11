@@ -32,11 +32,16 @@ export const StartupChallengeDetailPage: React.FC = () => {
     enabled: !!challengeId,
   });
 
-  const { data: matchResult } = useQuery({
+  const {
+    data: matchResult,
+    isLoading: isLoadingMatchResult,
+    error: matchError,
+  } = useQuery({
     queryKey: ['challenge-match', challengeId],
     queryFn: () => matchingService.matchStartupToChallenge(challengeId),
     enabled: !!challengeId,
-    retry: false,
+    retry: 2,
+    refetchOnWindowFocus: true,
   });
 
   const { data: myApplications } = useQuery({
@@ -173,7 +178,28 @@ export const StartupChallengeDetailPage: React.FC = () => {
       </div>
 
       {/* AI Match Recommendation Card */}
-      {matchResult && (
+      {isLoadingMatchResult ? (
+        <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white rounded-2xl border border-blue-200/80 p-5 shadow-card">
+          <div className="flex items-center gap-2 text-gov-navy">
+            <Sparkles className="w-5 h-5 text-gov-blue animate-pulse" />
+            <h3 className="text-sm font-bold">AI-Assisted Compatibility Match</h3>
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+            <div className="w-4 h-4 border-2 border-gov-blue border-t-transparent rounded-full animate-spin" />
+            <span>Computing startup-to-challenge compatibility...</span>
+          </div>
+        </div>
+      ) : matchError ? (
+        <div className="bg-white rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-card">
+          <div className="flex items-center gap-2 text-amber-800">
+            <AlertCircle className="w-5 h-5" />
+            <h3 className="text-sm font-bold">AI match temporarily unavailable</h3>
+          </div>
+          <p className="mt-2 text-xs text-amber-700">
+            The compatibility engine could not load for this challenge. Refresh the page or try again shortly.
+          </p>
+        </div>
+      ) : matchResult ? (
         <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white rounded-2xl border border-blue-200/80 p-5 shadow-card">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
@@ -203,7 +229,7 @@ export const StartupChallengeDetailPage: React.FC = () => {
             <span className="text-slate-400 italic">AI assists decision-making; final decision rests with Government.</span>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Problem Definition & Expected Outcomes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

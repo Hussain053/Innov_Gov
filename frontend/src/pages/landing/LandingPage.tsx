@@ -203,7 +203,7 @@ export const LandingPage: React.FC = () => {
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-900 leading-snug group-hover:text-gov-blue">
-                      {acc.label.substring(3)}
+                      {acc.label.replace(/^[^\s]+\s+/, '')}
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-normal">
                       {acc.description}

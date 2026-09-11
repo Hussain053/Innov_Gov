@@ -42,16 +42,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return null;
     }
 
-    // Preserve demo session if in demo simulation mode
+    // Upgrade any cached demo session to a real backend session when the API is reachable.
     if (currentToken.startsWith('demo_token_')) {
       const saved = localStorage.getItem('innogov_user');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setUser(parsed);
-          setIsLoading(false);
-          return parsed;
-        } catch {}
+          const demoPersona = Object.values(DEMO_ACCOUNTS).find(
+            (acc) => acc.email.toLowerCase() === parsed.email?.toLowerCase()
+          );
+
+          if (demoPersona) {
+            try {
+              const tokenData = await authService.login(demoPersona.email, demoPersona.password);
+              localStorage.setItem('innogov_token', tokenData.access_token);
+              setToken(tokenData.access_token);
+
+              const userData = await authService.getMe();
+              setUser(userData);
+              localStorage.setItem('innogov_user', JSON.stringify(userData));
+              setIsLoading(false);
+              return userData;
+            } catch (loginErr) {
+              console.warn('Failed to upgrade cached demo session to real backend session:', loginErr);
+              setUser(parsed);
+              setIsLoading(false);
+              return parsed;
+            }
+          }
+        } catch {
+          // Fall through to the normal cached-user handling below.
+        }
       }
     }
 
@@ -62,15 +83,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return userData;
     } catch (err) {
       console.warn('Failed to refresh user profile from backend:', err);
-      // Keep cached user if offline, otherwise clear
+
       const saved = localStorage.getItem('innogov_user');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          const demoPersona = Object.values(DEMO_ACCOUNTS).find(
+            (acc) => acc.email.toLowerCase() === parsed.email?.toLowerCase()
+          );
+
+          if (demoPersona) {
+            try {
+              const tokenData = await authService.login(demoPersona.email, demoPersona.password);
+              localStorage.setItem('innogov_token', tokenData.access_token);
+              setToken(tokenData.access_token);
+
+              const refreshedUser = await authService.getMe();
+              setUser(refreshedUser);
+              localStorage.setItem('innogov_user', JSON.stringify(refreshedUser));
+              return refreshedUser;
+            } catch {
+              // If demo re-login is unavailable, fall back to cached user.
+            }
+          }
+
           setUser(parsed);
           return parsed;
         } catch {}
       }
+
       localStorage.removeItem('innogov_token');
       localStorage.removeItem('innogov_user');
       setToken(null);
