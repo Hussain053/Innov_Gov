@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.core.permissions import require_startup
+from app.crud import evaluator_assignment as crud_assignment
 from app.crud import pilot as crud_pilot
 from app.crud import pilot_submission as crud_pilot_submission
 from app.models.activity_log import ActivityAction
@@ -25,6 +26,50 @@ from app.services.notifications import (
 )
 
 router = APIRouter(prefix="/pilot-submissions", tags=["Pilot Submissions"])
+
+
+async def _auto_assign_evaluator_if_needed(db: AsyncSession, submission, pilot) -> None:
+    """
+    Automatically assign an active evaluator to a submission when the challenge already
+    holds metadata for a preferred evaluator or when no explicit assignment exists yet.
+    """
+    challenge = pilot.challenge if pilot and pilot.challenge else None
+    if not challenge:
+        return
+
+    evaluator_id = None
+    requirements = challenge.requirements or {}
+    if isinstance(requirements, dict):
+        assigned_evaluator = requirements.get("assigned_evaluator")
+        if isinstance(assigned_evaluator, dict):
+            evaluator_id = assigned_evaluator.get("id")
+
+    if not evaluator_id:
+        result = await db.execute(
+            select(User)
+            .where(User.role == UserRole.EVALUATOR, User.is_active.is_(True))
+            .order_by(User.id)
+        )
+        evaluator = result.scalar_one_or_none()
+        if evaluator:
+            evaluator_id = evaluator.id
+
+    if not evaluator_id:
+        return
+
+    existing_assignment = await crud_assignment.get_assignment_by_submission_and_evaluator(
+        db=db,
+        pilot_submission_id=submission.id,
+        evaluator_id=evaluator_id,
+    )
+    if existing_assignment:
+        return
+
+    await crud_assignment.create_assignment(
+        db=db,
+        pilot_submission_id=submission.id,
+        evaluator_id=evaluator_id,
+    )
 
 
 @router.post(
@@ -81,6 +126,8 @@ async def create_pilot_submission(
             status_code=status.HTTP_409_CONFLICT,
             detail="A submission already exists for this pilot project",
         )
+
+    await _auto_assign_evaluator_if_needed(db=db, submission=submission, pilot=pilot)
 
     await record_activity(
         db=db,

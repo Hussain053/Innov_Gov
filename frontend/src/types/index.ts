@@ -169,6 +169,8 @@ export interface PilotSubmission {
   created_at: string;
   updated_at: string;
   pilot?: Pilot;
+  startup?: User | null;
+  startup_name?: string | null;
 }
 
 export interface EvaluatorAssignment {

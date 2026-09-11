@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FileCheck2,
   CheckCircle2,
@@ -23,8 +23,10 @@ import { useToast } from '../../context/ToastContext';
 export const GovernmentApplicationsReviewPage: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const { success, error } = useToast();
 
+  const challengeId = id ? parseInt(id || '0') : undefined;
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   const { data: applications, isLoading } = useQuery({
@@ -35,6 +37,12 @@ export const GovernmentApplicationsReviewPage: React.FC = () => {
   const { data: challenges } = useQuery({
     queryKey: ['challenges-all'],
     queryFn: () => challengeService.listChallenges(),
+  });
+
+  const { data: selectedChallenge } = useQuery({
+    queryKey: ['challenge', challengeId],
+    queryFn: () => challengeService.getChallenge(challengeId!),
+    enabled: !!challengeId,
   });
 
   const markUnderReviewMutation = useMutation({
@@ -69,6 +77,7 @@ export const GovernmentApplicationsReviewPage: React.FC = () => {
   };
 
   const filteredApps = applications?.filter((app) => {
+    if (challengeId && app.challenge_id !== challengeId) return false;
     if (statusFilter === 'ALL') return true;
     return app.status === statusFilter;
   });
@@ -79,10 +88,12 @@ export const GovernmentApplicationsReviewPage: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-gov-navy flex items-center gap-2">
             <FileCheck2 className="w-5 h-5 text-gov-blue" />
-            Tender Applications Review
+            {selectedChallenge ? `Tender Applications Review — ${selectedChallenge.title}` : 'Tender Applications Review'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Review startup proposals, conduct due diligence, and shortlist qualified candidates for pilot trials.
+            {selectedChallenge
+              ? `Review applications received for ${selectedChallenge.title}.`
+              : 'Review startup proposals, conduct due diligence, and shortlist qualified candidates for pilot trials.'}
           </p>
         </div>
 

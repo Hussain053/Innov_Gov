@@ -83,9 +83,22 @@ async def match_all_startups_for_challenge(
 
     matches = []
     for p in profiles:
+        if not p.company_name:
+            continue
+
+        if not (
+            p.description
+            or p.experience
+            or p.industry
+            or p.location
+            or p.kpi_data
+        ):
+            continue
+
         m = calculate_match(p, challenge)
         m.startup_name = p.company_name
         m.industry = p.industry
         matches.append(m)
-    matches.sort(key=lambda m: m.match_score, reverse=True)
-    return matches
+
+    matches.sort(key=lambda m: (m.match_score, m.startup_name or ""), reverse=True)
+    return matches[:3]

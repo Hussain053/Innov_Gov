@@ -220,7 +220,15 @@ async def test_full_32_step_procurement_workflow(client: AsyncClient):
     submission_id = submission["id"]
     assert submission["status"] == "DRAFT"
 
-    # 20. Startup submits submission
+    # 20. Evaluator should be auto-assigned on pilot submission creation when challenge metadata includes a preferred evaluator
+    gov_assigns = await client.get(
+        "/evaluator-assignments",
+        headers={"Authorization": f"Bearer {gov_token}"},
+    )
+    assert gov_assigns.status_code == 200
+    assert any(a["pilot_submission_id"] == submission_id for a in gov_assigns.json())
+
+    # 21. Startup submits submission
     ps_sub = await client.post(
         f"/pilot-submissions/{submission_id}/submit",
         headers={"Authorization": f"Bearer {startup_token}"},
@@ -228,22 +236,11 @@ async def test_full_32_step_procurement_workflow(client: AsyncClient):
     assert ps_sub.status_code == 200
     assert ps_sub.json()["status"] == "SUBMITTED"
 
-    # 21. Government assigns evaluator
-    ea_create = await client.post(
-        "/evaluator-assignments",
-        headers={"Authorization": f"Bearer {gov_token}"},
-        json={
-            "pilot_submission_id": submission_id,
-            "evaluator_id": eval_user["id"],
-        },
-    )
-    assert ea_create.status_code == 201
-    assignment_id = ea_create.json()["id"]
-
-    # 22. Evaluator sees assignment
+    # 22. Evaluator sees the auto-assigned evaluator task
     ev_assigns = await client.get("/evaluator-assignments", headers={"Authorization": f"Bearer {eval_token}"})
     assert ev_assigns.status_code == 200
-    assert any(a["id"] == assignment_id for a in ev_assigns.json())
+    assignment = next(a for a in ev_assigns.json() if a["pilot_submission_id"] == submission_id)
+    assignment_id = assignment["id"]
 
     # 23. Evaluator starts assignment
     ea_start = await client.patch(

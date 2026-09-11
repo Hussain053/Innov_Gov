@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -35,6 +36,86 @@ VALID_CHALLENGE_TRANSITIONS = {
     ChallengeStatus.AWARDED: {ChallengeStatus.COMPLETED},
     ChallengeStatus.COMPLETED: set(),
 }
+
+
+def _tokens(text: Optional[str]) -> set[str]:
+    if not text:
+        return set()
+    return {
+        token.lower()
+        for token in re.findall(r"[a-z0-9]{3,}", text.lower())
+        if token.lower() not in {"the", "with", "from", "this", "that", "into", "over", "under", "must", "for", "and", "will", "using", "such", "have", "been"}
+    }
+
+
+async def _attach_assigned_evaluator_metadata(db: AsyncSession, challenge) -> None:
+    requirements = dict(challenge.requirements or {})
+    if requirements.get("assigned_evaluator"):
+        return
+
+    evaluator_result = await db.execute(
+        select(User).where(User.role == UserRole.EVALUATOR, User.is_active.is_(True))
+    )
+    evaluators = list(evaluator_result.scalars().all())
+
+    if not evaluators:
+        return
+
+    challenge_text = " ".join(
+        filter(
+            None,
+            [
+                challenge.title,
+                challenge.description,
+                challenge.problem_statement,
+                challenge.category,
+                challenge.location,
+            ],
+        )
+    )
+    challenge_tokens = _tokens(challenge_text)
+
+    scored_evaluators = []
+    for evaluator in evaluators:
+        evaluator_text = " ".join(
+            filter(
+                None,
+                [
+                    evaluator.name,
+                    evaluator.organization,
+                    evaluator.email,
+                ],
+            )
+        )
+        evaluator_tokens = _tokens(evaluator_text)
+        overlap = len(challenge_tokens & evaluator_tokens)
+
+        score = overlap * 12
+
+        if challenge.category and challenge.category.lower() in (evaluator.organization or "").lower():
+            score += 25
+        if challenge.location and challenge.location.lower() in (evaluator.organization or "").lower():
+            score += 20
+        if evaluator.organization:
+            score += 10
+        if evaluator.is_active:
+            score += 10
+
+        scored_evaluators.append((min(score, 100), evaluator))
+
+    if not scored_evaluators:
+        return
+
+    best_evaluator = max(scored_evaluators, key=lambda item: item[0])[1]
+    requirements["assigned_evaluator"] = {
+        "id": best_evaluator.id,
+        "name": best_evaluator.name,
+        "organization": best_evaluator.organization,
+        "email": best_evaluator.email,
+        "match_score": min(max(round(max(scored_evaluators, key=lambda item: item[0])[0], 0), 0), 100),
+        "reason": "Best available evaluator match based on challenge domain, department context, and active evaluator profile.",
+    }
+    challenge.requirements = requirements
 
 
 @router.post(
@@ -167,6 +248,9 @@ async def update_challenge(
         db_challenge=challenge,
         challenge_in=challenge_in,
     )
+
+    if updated.status == ChallengeStatus.OPEN:
+        await _attach_assigned_evaluator_metadata(db, updated)
 
     if "status" in update_data and update_data["status"] != old_status:
         action = ActivityAction.CHALLENGE_STATUS_CHANGED

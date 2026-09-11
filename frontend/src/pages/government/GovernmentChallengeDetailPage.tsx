@@ -122,7 +122,7 @@ export const GovernmentChallengeDetailPage: React.FC = () => {
             </Link>
 
             <Link
-              to="/government/applications"
+              to={`/government/challenges/${challenge.id}/applications`}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gov-blue text-white hover:bg-blue-700 transition-colors shadow-sm"
             >
               <FileCheck2 className="w-4 h-4" /> Review Received Applications
@@ -168,6 +168,24 @@ export const GovernmentChallengeDetailPage: React.FC = () => {
           <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{challenge.description}</p>
         </div>
       </div>
+
+      {challenge.requirements?.assigned_evaluator && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card">
+          <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100">
+            Assigned Evaluator
+          </h3>
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-base font-bold text-slate-900">{challenge.requirements.assigned_evaluator.name}</p>
+              <p className="text-xs text-slate-500">{challenge.requirements.assigned_evaluator.organization || challenge.requirements.assigned_evaluator.email}</p>
+            </div>
+            <div className="rounded-xl bg-purple-50 border border-purple-200 px-3 py-2 text-right">
+              <p className="text-[10px] uppercase font-bold tracking-wider text-purple-700">Evaluator Match</p>
+              <p className="text-lg font-black text-purple-900">{challenge.requirements.assigned_evaluator.match_score || 0}%</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

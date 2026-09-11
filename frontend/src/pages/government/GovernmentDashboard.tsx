@@ -221,7 +221,7 @@ export const GovernmentDashboard: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`/government/matching/${ch.id}`}
+                    to={`/government/challenges/${ch.id}/matching`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors shadow-sm"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-purple-600" /> AI Startup Match
