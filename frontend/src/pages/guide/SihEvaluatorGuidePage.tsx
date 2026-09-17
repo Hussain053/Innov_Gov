@@ -4,12 +4,15 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  Building2,
   CheckCircle2,
   FileCheck2,
   LockKeyhole,
+  Rocket,
   Scale,
   Search,
   ShieldCheck,
+  Settings,
   Target,
   Users,
 } from 'lucide-react';
@@ -50,6 +53,57 @@ const stages = [
     title: 'Scale',
     description: 'Successful pilots move toward milestone-based payments, validated procurement, and expansion across departments or districts.',
     icon: ArrowRight,
+  },
+];
+
+const roleSteps = [
+  {
+    title: 'Government',
+    description: 'Creates the challenge and takes procurement decisions.',
+    icon: Building2,
+    color: 'text-blue-700 bg-blue-50 border-blue-200',
+    steps: [
+      'Create a problem statement with outcomes, KPIs, budget, timeline, and eligibility rules.',
+      'Review matched startups and shortlist suitable solutions for a pilot.',
+      'Create pilot milestones, assign evaluators, and monitor submitted evidence.',
+      'Review evaluation summaries and approve procurement, rejection, or scale-up decisions.',
+    ],
+  },
+  {
+    title: 'Startup',
+    description: 'Presents an eligible solution and delivers the pilot.',
+    icon: Rocket,
+    color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    steps: [
+      'Register the organization, solution capabilities, documents, and contact details.',
+      'Browse government challenges and submit applications for relevant opportunities.',
+      'Respond to selection, accept pilot terms, and complete assigned milestones.',
+      'Upload telemetry, KPI evidence, reports, and payment documentation on time.',
+    ],
+  },
+  {
+    title: 'Evaluator',
+    description: 'Independently validates evidence and scores pilot performance.',
+    icon: Award,
+    color: 'text-violet-700 bg-violet-50 border-violet-200',
+    steps: [
+      'Open assigned pilot submissions from the evaluator dashboard.',
+      'Review technical documents, telemetry, milestone evidence, and KPI results.',
+      'Score technical rigor, KPI adherence, innovation, feasibility, and public impact.',
+      'Submit a reasoned evaluation so government can make an evidence-based decision.',
+    ],
+  },
+  {
+    title: 'Admin',
+    description: 'Governs trust, access, and platform-wide accountability.',
+    icon: Settings,
+    color: 'text-amber-700 bg-amber-50 border-amber-200',
+    steps: [
+      'Verify startup profiles and manage government, evaluator, and startup accounts.',
+      'Assign roles and evaluator responsibilities with role-based access control.',
+      'Monitor activity logs, notifications, contracts, and platform health.',
+      'Maintain an auditable record of decisions and support compliant procurement operations.',
+    ],
   },
 ];
 
