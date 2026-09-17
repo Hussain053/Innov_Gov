@@ -177,7 +177,7 @@ export const LoginPage: React.FC = () => {
           <span className="font-extrabold text-2xl text-gov-navy tracking-tight">InnoGov</span>
         </Link>
         <h2 className="text-xl font-bold text-slate-800">Public Procurement Portal</h2>
-        <p className="text-xs text-slate-500 mt-1">Smart India Hackathon Problem 26136 Demonstration</p>
+        <p className="text-xs text-slate-500 mt-1">Smart India Hackathon Problem 26136 Evaluation</p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-xl px-4">
@@ -388,7 +388,7 @@ export const LoginPage: React.FC = () => {
                       className="block w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-gov-blue outline-none"
                     />
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Valid demo IDs: <code className="text-slate-600">GOV-VERIFIED-001</code>, <code className="text-slate-600">GOV-TEST-12345</code>
+                      Valid IDs: <code className="text-slate-600">GOV-VERIFIED-001</code>, <code className="text-slate-600">GOV-TEST-12345</code>
                     </p>
                   </div>
                 </>
@@ -408,7 +408,7 @@ export const LoginPage: React.FC = () => {
                     className="block w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-gov-blue outline-none"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Valid demo IDs: <code className="text-slate-600">EVAL-VERIFIED-001</code>, <code className="text-slate-600">EVAL-INVITE-2026</code>
+                    Valid IDs: <code className="text-slate-600">EVAL-VERIFIED-001</code>, <code className="text-slate-600">EVAL-INVITE-2026</code>
                   </p>
                 </div>
               )}

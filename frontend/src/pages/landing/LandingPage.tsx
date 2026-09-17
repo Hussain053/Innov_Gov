@@ -182,10 +182,10 @@ export const LandingPage: React.FC = () => {
             </Link>
           </div>
 
-          {/* Demo Persona Quick-Cards */}
+          {/* Role access cards */}
           <div className="mt-14 pt-8 border-t border-slate-200/80">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
-              Select Demo Role for Evaluation
+              Select Role for Evaluation
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-5xl mx-auto text-left">
               {(['STARTUP', 'GOVERNMENT', 'EVALUATOR', 'ADMIN'] as const).map((r) => {

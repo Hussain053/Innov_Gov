@@ -7,6 +7,7 @@ import {
   Building2,
   CheckCircle2,
   FileCheck2,
+  KeyRound,
   LockKeyhole,
   Rocket,
   Scale,
@@ -278,6 +279,40 @@ export const SihEvaluatorGuidePage: React.FC = () => {
                   </article>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          <div className="bg-gov-navy rounded-2xl p-6 sm:p-8 text-white">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5 text-blue-200" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Optional platform access</p>
+                <h2 className="mt-2 text-2xl font-extrabold">Review the platform without registering</h2>
+                <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                  Evaluators who do not want to create an account can use these review credentials to access each portal.
+                  Select the matching role on the sign-in page.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                ['Startup', 'navya@gmail.com', 'Password123'],
+                ['Evaluator', 'neel@gmail.com', 'Password123'],
+                ['Government', 'dd@gmail.com', 'Password123!'],
+                ['Admin', 'ayush@gmail.com', 'password123'],
+              ].map(([role, email, password]) => (
+                <div key={role} className="rounded-xl bg-white/10 border border-white/10 p-4">
+                  <p className="text-sm font-bold text-white">{role}</p>
+                  <p className="mt-3 text-xs text-slate-300">Email</p>
+                  <p className="text-sm font-mono text-blue-100 break-all">{email}</p>
+                  <p className="mt-2 text-xs text-slate-300">Password</p>
+                  <p className="text-sm font-mono text-blue-100">{password}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>

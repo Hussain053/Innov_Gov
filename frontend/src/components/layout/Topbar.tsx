@@ -42,7 +42,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileNav }) => {
           break;
       }
     } catch (err: any) {
-      error('Role switch failed', err.response?.data?.detail || 'Could not authenticate demo user on backend');
+      error('Role switch failed', err.response?.data?.detail || 'Could not authenticate the selected role on the backend');
     } finally {
       setIsSwitching(false);
     }
@@ -71,16 +71,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileNav }) => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Demo Quick Switcher Dropdown */}
+        {/* Role switcher */}
         <div className="relative">
           <button
             onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
             disabled={isSwitching}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-gov-blue hover:bg-blue-100 border border-blue-200 transition-colors disabled:opacity-50"
-            title="Switch Demo Role for SIH Judging"
+            title="Switch role for SIH evaluation"
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden md:inline">Demo Persona:</span>
+            <span className="hidden md:inline">Role:</span>
             <span className="font-bold">{role}</span>
             <ChevronDown className="w-3 h-3 ml-0.5 opacity-60" />
           </button>
@@ -89,7 +89,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileNav }) => {
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-elevated border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95">
               <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Switch Persona (SIH Demo Flow)
+                  Switch Role (SIH Evaluation Flow)
                 </p>
               </div>
               {(['STARTUP', 'GOVERNMENT', 'EVALUATOR', 'ADMIN'] as UserRole[]).map((r) => {
