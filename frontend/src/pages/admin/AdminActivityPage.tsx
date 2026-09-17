@@ -11,6 +11,7 @@ import {
   Award,
   Layers,
   CheckCircle,
+  Download,
 } from 'lucide-react';
 import { activityService } from '../../services/activityService';
 import { ActivityLog } from '../../types';
@@ -19,9 +20,10 @@ import { useToast } from '../../context/ToastContext';
 export const AdminActivityPage: React.FC = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [resourceFilter, setResourceFilter] = useState<string>('ALL');
-  const { error } = useToast();
+  const { success, error } = useToast();
 
   const fetchActivity = async () => {
     try {
@@ -36,6 +38,26 @@ export const AdminActivityPage: React.FC = () => {
       error(err.response?.data?.detail || 'Failed to fetch platform audit activity.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      const blob = await activityService.downloadAuditPdf();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Statutory-Audit-Trail-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      success('Audit PDF Downloaded', 'Official statutory audit report PDF saved.');
+    } catch (err: any) {
+      error(err.response?.data?.detail || 'Could not download audit report PDF.');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -94,13 +116,23 @@ export const AdminActivityPage: React.FC = () => {
             Immutable, timestamped audit log of all administrative, statutory, and procurement actions.
           </p>
         </div>
-        <button
-          onClick={fetchActivity}
-          className="inline-flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4 text-gray-500" />
-          <span>Refresh Logs</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="inline-flex items-center space-x-2 px-3.5 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            <span>{downloadingPdf ? 'Generating PDF...' : 'Download Statutory Audit Report (PDF)'}</span>
+          </button>
+          <button
+            onClick={fetchActivity}
+            className="inline-flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4 text-gray-500" />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

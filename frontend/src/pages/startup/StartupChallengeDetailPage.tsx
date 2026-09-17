@@ -13,6 +13,9 @@ import {
   AlertCircle,
   Building,
   Target,
+  Download,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import challengeService from '../../services/challengeService';
 import applicationService from '../../services/applicationService';
@@ -25,6 +28,7 @@ export const StartupChallengeDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { success, error } = useToast();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const { data: challenge, isLoading } = useQuery({
     queryKey: ['challenge', challengeId],
@@ -64,6 +68,27 @@ export const StartupChallengeDetailPage: React.FC = () => {
     },
   });
 
+  const handleDownloadPdf = async () => {
+    if (!challenge) return;
+    try {
+      setDownloadingPdf(true);
+      const blob = await challengeService.downloadTenderPdf(challenge.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Tender-Specification-Notice-${challenge.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      success('Tender Notice Downloaded', `Official PDF saved for Challenge #${challenge.id}`);
+    } catch (err: any) {
+      error('Download Failed', err.response?.data?.detail || 'Could not download tender PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="py-20 text-center">
@@ -84,6 +109,9 @@ export const StartupChallengeDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  const requirements = challenge.requirements || {};
+  const kpis = challenge.kpis || {};
 
   return (
     <div className="space-y-6">
@@ -108,24 +136,35 @@ export const StartupChallengeDetailPage: React.FC = () => {
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
                 STATUS: {challenge.status}
               </span>
-              <span className="text-xs text-slate-400 font-mono">ID #{challenge.id}</span>
+              <span className="text-xs text-slate-400 font-mono">Tender Ref #{challenge.id}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-gov-navy leading-tight">
               {challenge.title}
             </h1>
             <p className="text-xs text-slate-500 flex items-center gap-2">
-              <Building className="w-3.5 h-3.5" /> Department Reference: Govt User #{challenge.government_user_id}
+              <Building className="w-3.5 h-3.5 text-slate-400" /> Authorized Public Procurement Authority
             </p>
           </div>
 
           {/* CTA Box */}
-          <div className="flex-shrink-0 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center md:text-right min-w-[220px]">
-            <span className="text-[11px] font-bold text-slate-500 uppercase">Allocated Pilot Budget</span>
-            <p className="text-2xl font-black text-gov-navy mt-1">
-              ₹{challenge.budget ? (challenge.budget / 100000).toFixed(1) + ' Lakhs' : 'Government Grant'}
-            </p>
+          <div className="flex-shrink-0 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center md:text-right min-w-[220px] space-y-3">
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Allocated Pilot Budget</span>
+              <p className="text-2xl font-black text-gov-navy mt-0.5">
+                ₹{challenge.budget ? Number(challenge.budget).toLocaleString('en-IN') : 'Grant Allocated'}
+              </p>
+            </div>
 
-            <div className="mt-3">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-slate-800 text-white hover:bg-slate-900 transition-colors shadow-xs disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloadingPdf ? 'Generating PDF...' : 'Download Tender PDF'}
+              </button>
+
               {existingApplication ? (
                 <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
                   <span className="text-xs font-bold text-emerald-800 block">Applied</span>
@@ -256,30 +295,46 @@ export const StartupChallengeDetailPage: React.FC = () => {
 
       {/* Requirements & Target KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card">
-          <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100 mb-3">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-3">
+          <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-gov-blue" />
             Eligibility & Minimum Requirements
           </h3>
-          {challenge.requirements ? (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 overflow-x-auto">
-              <pre>{JSON.stringify(challenge.requirements, null, 2)}</pre>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">Open to all verified DPIIT startups in the relevant sector.</p>
-          )}
+          <div className="space-y-2">
+            {Object.entries(requirements)
+              .filter(([k]) => k !== 'assigned_evaluator')
+              .map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                  <span className="font-semibold text-slate-700 capitalize">{key.replace(/_/g, ' ')}</span>
+                  <span className="font-bold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                  </span>
+                </div>
+              ))}
+            {Object.keys(requirements).filter((k) => k !== 'assigned_evaluator').length === 0 && (
+              <p className="text-xs text-slate-400 italic">Open to all verified DPIIT startups in the sector.</p>
+            )}
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card">
-          <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100 mb-3">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-3">
+          <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-600" />
             Target Pilot Key Performance Indicators (KPIs)
           </h3>
-          {challenge.kpis ? (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono text-emerald-700 overflow-x-auto">
-              <pre>{JSON.stringify(challenge.kpis, null, 2)}</pre>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">Milestone benchmarks will be finalized upon pilot assignment.</p>
-          )}
+          <div className="space-y-2">
+            {Object.entries(kpis).map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100 text-xs">
+                <span className="font-semibold text-emerald-950 capitalize">{key.replace(/_/g, ' ')}</span>
+                <span className="font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                </span>
+              </div>
+            ))}
+            {Object.keys(kpis).length === 0 && (
+              <p className="text-xs text-slate-400 italic">Milestone benchmarks will be finalized upon pilot assignment.</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

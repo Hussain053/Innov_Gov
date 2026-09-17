@@ -86,7 +86,7 @@ export const LandingPage: React.FC = () => {
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
           <span>Official Public Procurement Innovation Framework</span>
           <span className="text-slate-600">•</span>
-          <span className="text-slate-400 font-mono">SIH Problem Statement 26136</span>
+          <span className="text-slate-400 font-mono">Verifiable Milestone Contracting</span>
         </div>
         <div className="hidden sm:flex items-center gap-4 text-slate-400">
           <span>FastAPI + Async SQLAlchemy Backend</span>

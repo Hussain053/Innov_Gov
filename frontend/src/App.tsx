@@ -94,8 +94,12 @@ export const App: React.FC = () => {
 
       {/* Authenticated Application Layout */}
       <Route element={<AppLayout />}>
-        {/* Common Notifications */}
+        {/* Common Notifications (all roles and role-specific aliases) */}
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/startup/notifications" element={<RoleGate allowedRoles={['STARTUP']}><NotificationsPage /></RoleGate>} />
+        <Route path="/government/notifications" element={<RoleGate allowedRoles={['GOVERNMENT']}><NotificationsPage /></RoleGate>} />
+        <Route path="/evaluator/notifications" element={<RoleGate allowedRoles={['EVALUATOR']}><NotificationsPage /></RoleGate>} />
+        <Route path="/admin/notifications" element={<RoleGate allowedRoles={['ADMIN']}><NotificationsPage /></RoleGate>} />
 
         {/* Startup Portal */}
         <Route
@@ -221,7 +225,23 @@ export const App: React.FC = () => {
           }
         />
         <Route
+          path="/government/matching/:id"
+          element={
+            <RoleGate allowedRoles={['GOVERNMENT']}>
+              <GovernmentMatchingPage />
+            </RoleGate>
+          }
+        />
+        <Route
           path="/government/challenges/:id/applications"
+          element={
+            <RoleGate allowedRoles={['GOVERNMENT']}>
+              <GovernmentApplicationsReviewPage />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="/government/applications"
           element={
             <RoleGate allowedRoles={['GOVERNMENT']}>
               <GovernmentApplicationsReviewPage />
@@ -295,6 +315,14 @@ export const App: React.FC = () => {
           }
         />
         <Route
+          path="/evaluator/evaluate/:id"
+          element={
+            <RoleGate allowedRoles={['EVALUATOR']}>
+              <EvaluatorWorkspacePage />
+            </RoleGate>
+          }
+        />
+        <Route
           path="/evaluator/history"
           element={
             <RoleGate allowedRoles={['EVALUATOR']}>
@@ -317,6 +345,14 @@ export const App: React.FC = () => {
           element={
             <RoleGate allowedRoles={['ADMIN']}>
               <AdminUsersPage />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="/admin/verification"
+          element={
+            <RoleGate allowedRoles={['ADMIN']}>
+              <AdminVerificationPage />
             </RoleGate>
           }
         />

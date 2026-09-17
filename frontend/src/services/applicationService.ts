@@ -65,6 +65,14 @@ export const applicationService = {
     });
     return response.data;
   },
+
+  respondToInvite: async (applicationId: number, action: 'ACCEPT' | 'REJECT'): Promise<Application> => {
+    const response = await apiClient.post<Application>(`/applications/${applicationId}/respond-invite`, {
+      action,
+    });
+    return response.data;
+  },
 };
 
 export default applicationService;
+

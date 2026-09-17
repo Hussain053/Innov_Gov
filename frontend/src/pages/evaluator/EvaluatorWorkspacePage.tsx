@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import submissionService from '../../services/submissionService';
 import pilotService from '../../services/pilotService';
+import startupService from '../../services/startupService';
 import evaluationService, { EvaluationCreateParams } from '../../services/evaluationService';
 import { EvaluationRecommendation } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -40,6 +41,12 @@ export const EvaluatorWorkspacePage: React.FC = () => {
     enabled: !!submission?.pilot_id,
   });
 
+  const { data: startupProfile } = useQuery({
+    queryKey: ['startup-profile', submission?.startup_id],
+    queryFn: () => startupService.getStartupProfile(submission!.startup_id),
+    enabled: !!submission?.startup_id,
+  });
+
   const { data: existingEvaluations } = useQuery({
     queryKey: ['evaluations-submission', submissionId],
     queryFn: () => evaluationService.getEvaluationsBySubmission(submissionId),
@@ -49,14 +56,12 @@ export const EvaluatorWorkspacePage: React.FC = () => {
   const myEvaluation = existingEvaluations?.[0];
 
   // Scoring states (0-100)
-  const [technicalScore, setTechnicalScore] = useState<number>(90);
-  const [kpiScore, setKpiScore] = useState<number>(92);
-  const [innovationScore, setInnovationScore] = useState<number>(88);
-  const [feasibilityScore, setFeasibilityScore] = useState<number>(90);
-  const [impactScore, setImpactScore] = useState<number>(94);
-  const [comments, setComments] = useState(
-    'Outstanding technical execution. Empirical telemetry confirms >93% microgrid efficiency and high operational resilience.'
-  );
+  const [technicalScore, setTechnicalScore] = useState<number>(85);
+  const [kpiScore, setKpiScore] = useState<number>(85);
+  const [innovationScore, setInnovationScore] = useState<number>(85);
+  const [feasibilityScore, setFeasibilityScore] = useState<number>(85);
+  const [impactScore, setImpactScore] = useState<number>(85);
+  const [comments, setComments] = useState('');
   const [recommendation, setRecommendation] = useState<EvaluationRecommendation>('RECOMMEND');
 
   useEffect(() => {
@@ -188,36 +193,164 @@ export const EvaluatorWorkspacePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Submission Deliverables Review (Read-only) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-4">
+      {/* Submission Deliverables Review */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-5">
         <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
           <FileCheck2 className="w-4 h-4 text-gov-blue" />
-          Startup Deliverables & Evidence Log
+          Startup Pilot Deliverables & Empirical Evidence
         </h3>
 
+        {/* Narrative */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-          <h4 className="text-xs font-bold text-slate-700 mb-1">Results Narrative</h4>
-          <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-            {submission?.results || 'Telemetry dataset and benchmark summary.'}
+          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            Field Trial Results Narrative
+          </h4>
+          <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+            {submission?.results || 'No detailed narrative submitted.'}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-xs font-bold text-slate-700 mb-1">Empirical KPI Telemetry (JSON)</h4>
-            <div className="p-3 rounded-xl bg-slate-900 text-emerald-400 font-mono text-xs overflow-x-auto">
-              <pre>{JSON.stringify(submission?.kpi_results, null, 2)}</pre>
-            </div>
-          </div>
+        {/* KPI Telemetry Scorecard */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            Empirical KPI Measurements & Achievement
+          </h4>
 
-          <div>
-            <h4 className="text-xs font-bold text-slate-700 mb-1">Audit Evidence & Cloud Logs (JSON)</h4>
-            <div className="p-3 rounded-xl bg-slate-900 text-blue-300 font-mono text-xs overflow-x-auto">
-              <pre>{JSON.stringify(submission?.evidence, null, 2)}</pre>
+          {submission?.kpi_results && Object.keys(submission.kpi_results).length > 0 ? (
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="px-3.5 py-2.5">KPI Metric</th>
+                    <th className="px-3.5 py-2.5">Measured Startup Result</th>
+                    <th className="px-3.5 py-2.5">Verification Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {Object.entries(submission.kpi_results).map(([kpiName, val]: [string, any]) => (
+                    <tr key={kpiName} className="hover:bg-slate-50/50">
+                      <td className="px-3.5 py-2 text-slate-800 font-semibold capitalize">
+                        {kpiName.replace(/_/g, ' ')}
+                      </td>
+                      <td className="px-3.5 py-2 text-emerald-700 font-bold font-mono">
+                        {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                      </td>
+                      <td className="px-3.5 py-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          VERIFIED LOG
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 italic border border-slate-200">
+              No structured KPI telemetry reported.
+            </div>
+          )}
+        </div>
+
+        {/* Attached Evidence Files */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
+            Uploaded Empirical Audit Files & Datasets
+          </h4>
+
+          {submission?.evidence && Object.keys(submission.evidence).length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {Object.entries(submission.evidence).map(([k, v]: [string, any]) => {
+                const isObj = typeof v === 'object' && v !== null;
+                const fileUrl = isObj ? v.url || v.file_url : String(v);
+                const fileName = isObj ? v.filename || v.saved_name || k : k;
+                const fileSize = isObj && v.size_bytes ? `${(v.size_bytes / 1024).toFixed(1)} KB` : 'Verified Evidence';
+
+                return (
+                  <div
+                    key={k}
+                    className="p-3 bg-blue-50/40 border border-blue-200 rounded-xl flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="p-2 rounded-lg bg-blue-100 text-blue-700 flex-shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-bold text-slate-900 truncate">{fileName}</p>
+                        <span className="text-[10px] text-slate-500">{fileSize}</span>
+                      </div>
+                    </div>
+
+                    {fileUrl && fileUrl.startsWith('/') ? (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gov-blue text-white hover:bg-blue-700 transition-colors shadow-xs flex-shrink-0"
+                      >
+                        Download / View
+                      </a>
+                    ) : (
+                      <span className="text-xs font-mono text-slate-600 bg-white px-2 py-1 rounded border border-slate-200">
+                        {String(v)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 italic border border-slate-200">
+              No external evidence files uploaded.
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Startup Profile Context */}
+      {startupProfile && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 gap-2">
+            <div className="flex items-center gap-2">
+              <Building className="w-4 h-4 text-purple-600" />
+              <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider">
+                Assigned Startup Profile: {startupProfile.company_name}
+              </h3>
+            </div>
+            {startupProfile.industry && (
+              <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-purple-50 text-purple-700">
+                {startupProfile.industry}
+              </span>
+            )}
+          </div>
+          {startupProfile.description && (
+            <p className="text-xs text-slate-600 leading-relaxed">{startupProfile.description}</p>
+          )}
+          {startupProfile.experience && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <span className="font-bold text-slate-700 block mb-0.5">Track Record & Experience:</span>
+              <p className="text-slate-600">{startupProfile.experience}</p>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
+            {startupProfile.location && <span>📍 {startupProfile.location}</span>}
+            {startupProfile.team_size && <span>👥 Team Size: {startupProfile.team_size}</span>}
+            {startupProfile.website && (
+              <a
+                href={startupProfile.website}
+                target="_blank"
+                rel="noreferrer"
+                className="text-purple-600 hover:underline"
+              >
+                🌐 {startupProfile.website}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Pilot Objectives & Success Criteria (For Evaluator Context) */}
       {pilot && (

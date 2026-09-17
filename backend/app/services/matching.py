@@ -339,10 +339,20 @@ def calculate_match(
 
     total_score = round(min(100.0, max(0.0, sum(breakdown.values()))), 1)
 
+    matched_domains = sorted(list(
+        (_extract_text_tokens(startup_profile.industry or "") | _extract_text_tokens(startup_profile.description or ""))
+        & _extract_text_tokens((challenge.category or "") + " " + (challenge.title or ""))
+    ))
+    matched_skills = sorted(list(problem_overlap + matched_experience))[:6]
+    matched_technologies = sorted(list(tech_overlap))[:6]
+
     return MatchResponse(
         challenge_id=challenge.id,
         startup_id=startup_profile.user_id,
         match_score=total_score,
+        matched_domains=matched_domains,
+        matched_skills=matched_skills,
+        matched_technologies=matched_technologies,
         matched_kpis=matched_kpi_names,
         explanation=explanation,
         breakdown=breakdown,

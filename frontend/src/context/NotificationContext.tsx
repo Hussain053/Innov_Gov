@@ -22,42 +22,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const fetchNotifications = useCallback(async () => {
     if (!token || !user) return;
-    
-    if (token.startsWith('demo_token_')) {
-      const demoList: Notification[] = [
-        {
-          id: 101,
-          notification_type: 'PILOT_ASSIGNED',
-          title: 'Pilot Deployment Authorized',
-          message: 'Department of Energy authorized sandbox pilot execution under GFR 149 relaxation.',
-          is_read: false,
-          created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-        },
-        {
-          id: 102,
-          notification_type: 'APPLICATION_SHORTLISTED',
-          title: 'Application Shortlisted for Pilot',
-          message: 'AI Matching Engine scored 94% compatibility. Shortlisted for pilot setup.',
-          is_read: false,
-          created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-        },
-        {
-          id: 103,
-          notification_type: 'EVALUATION_COMPLETED',
-          title: 'Evaluator Scorecard Published',
-          message: 'CleanTech Evaluation Board submitted RECOMMEND decision with 93.2% composite score.',
-          is_read: true,
-          created_at: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
-        },
-      ];
-      setNotifications((prev) => (prev.length > 0 ? prev : demoList));
-      setUnreadCount((prev) => (prev > 0 ? prev : 2));
-      return;
-    }
 
     try {
       const [list, count] = await Promise.all([
-        notificationService.listNotifications(0, 20),
+        notificationService.listNotifications(0, 50),
         notificationService.getUnreadCount(),
       ]);
       setNotifications(list);

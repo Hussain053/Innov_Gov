@@ -174,7 +174,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('innogov_user');
     setToken(null);
     setUser(null);
-    window.location.href = '/login';
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   };
 
   const isAuthenticated = (): boolean => {

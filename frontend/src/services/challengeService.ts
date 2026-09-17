@@ -70,6 +70,33 @@ export const challengeService = {
   deleteChallenge: async (id: number): Promise<void> => {
     await apiClient.delete(`/challenges/${id}`);
   },
+
+  listEvaluators: async (): Promise<Array<{ id: number; name: string; email: string; organization?: string }>> => {
+    const response = await apiClient.get('/challenges/evaluators/list');
+    return response.data;
+  },
+
+  assignEvaluator: async (challengeId: number, evaluatorId: number): Promise<Challenge> => {
+    const response = await apiClient.post<Challenge>(`/challenges/${challengeId}/assign-evaluator`, {
+      evaluator_id: evaluatorId,
+    });
+    return response.data;
+  },
+
+  inviteStartup: async (challengeId: number, startupId: number): Promise<any> => {
+    const response = await apiClient.post(`/challenges/${challengeId}/invite`, {
+      startup_id: startupId,
+    });
+    return response.data;
+  },
+
+  downloadTenderPdf: async (challengeId: number): Promise<Blob> => {
+    const response = await apiClient.get(`/challenges/${challengeId}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 export default challengeService;
+
