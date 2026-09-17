@@ -21,6 +21,37 @@ from app.services.activity import record_activity
 router = APIRouter(prefix="/evaluator-assignments", tags=["Evaluator Assignments"])
 
 
+@router.get(
+    "/evaluators",
+    status_code=status.HTTP_200_OK,
+)
+async def list_evaluator_users(
+    current_user: User = Depends(require_roles(UserRole.GOVERNMENT, UserRole.ADMIN, UserRole.EVALUATOR)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all registered active evaluators from the database.
+    - Used by Government dropdown to assign evaluators.
+    """
+    result = await db.execute(
+        select(User)
+        .where(User.role == UserRole.EVALUATOR, User.is_active.is_(True))
+        .order_by(User.name)
+    )
+    evaluators = list(result.scalars().all())
+    return [
+        {
+            "id": ev.id,
+            "name": ev.name,
+            "email": ev.email,
+            "organization": ev.organization,
+            "role": ev.role.value if hasattr(ev.role, "value") else str(ev.role),
+            "is_active": ev.is_active,
+        }
+        for ev in evaluators
+    ]
+
+
 @router.post(
     "",
     response_model=EvaluatorAssignmentResponse,

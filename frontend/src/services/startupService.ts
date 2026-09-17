@@ -34,6 +34,11 @@ export const startupService = {
     const response = await apiClient.get<StartupProfile>(`/startups/${id}`);
     return response.data;
   },
+
+  getStartupProfile: async (id: number): Promise<StartupProfile> => {
+    const response = await apiClient.get<StartupProfile>(`/startups/${id}`);
+    return response.data;
+  },
 };
 
 export default startupService;

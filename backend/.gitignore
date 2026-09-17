@@ -66,3 +66,6 @@ dist/
 # =========================
 *.tmp
 *.temp
+
+# --- runtime uploads
+uploads/

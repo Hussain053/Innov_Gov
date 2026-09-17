@@ -1,10 +1,14 @@
+import os
+import re
+import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.datetime_utils import utc_now
 from app.core.dependencies import get_current_user, get_db
 from app.core.permissions import require_startup
 from app.crud import evaluator_assignment as crud_assignment
@@ -102,10 +106,16 @@ async def create_pilot_submission(
             detail="You can only create submissions for your own assigned pilots",
         )
 
-    if pilot.status != PilotStatus.IN_PROGRESS:
+    if pilot.status == PilotStatus.ASSIGNED:
+        # Automatically transition pilot to IN_PROGRESS upon first submission creation
+        pilot.status = PilotStatus.IN_PROGRESS
+        pilot.updated_at = utc_now()
+        db.add(pilot)
+        await db.flush()
+    elif pilot.status != PilotStatus.IN_PROGRESS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Submissions can only be created when Pilot status is IN_PROGRESS (current status: '{pilot.status.value}')",
+            detail=f"Submissions can only be created when Pilot status is ASSIGNED or IN_PROGRESS (current status: '{pilot.status.value}')",
         )
 
     existing = await crud_pilot_submission.get_submission_by_pilot_id(db, submission_in.pilot_id)
@@ -140,6 +150,118 @@ async def create_pilot_submission(
     await db.commit()
     await db.refresh(submission)
     return submission
+
+
+@router.post(
+    "/upload-evidence",
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_submission_evidence(
+    request: Request,
+    current_user: User = Depends(require_startup),
+):
+    """
+    Upload actual device evidence / telemetry document.
+    - STARTUP only.
+    - Uses pure Python multipart MIME parser (zero external packages required).
+    - Saves file safely in backend uploads storage.
+    - Returns accessible file metadata and download URL.
+    """
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "evidence")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    content_type = request.headers.get("content-type", "")
+    body = await request.body()
+
+    max_size = 25 * 1024 * 1024  # 25MB
+    if len(body) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds the 25MB maximum limit",
+        )
+
+    original_filename = "evidence_document"
+    file_bytes = b""
+    detected_mime = "application/octet-stream"
+
+    if "multipart/form-data" in content_type:
+        import email
+        msg_bytes = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8") + body
+        msg = email.message_from_bytes(msg_bytes)
+        if msg.is_multipart():
+            for part in msg.get_payload():
+                cd = part.get("Content-Disposition", "")
+                if "filename=" in cd:
+                    m = re.search(r'filename="?([^";\r\n]+)"?', cd)
+                    if m:
+                        original_filename = m.group(1).strip()
+                    detected_mime = part.get_content_type()
+                    payload = part.get_payload(decode=True)
+                    if payload is not None:
+                        file_bytes = payload
+                    break
+        if not file_bytes:
+            file_bytes = body
+    else:
+        original_filename = request.headers.get("x-filename", "evidence_document")
+        detected_mime = content_type or "application/octet-stream"
+        file_bytes = body
+
+    if not file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file content received in upload payload",
+        )
+
+    # Sanitize and unique filename
+    safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", original_filename)
+    unique_filename = f"{uuid.uuid4().hex[:10]}_{safe_name}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    file_url = f"/pilot-submissions/evidence-files/{unique_filename}"
+    return {
+        "filename": original_filename,
+        "saved_name": unique_filename,
+        "url": file_url,
+        "size_bytes": len(file_bytes),
+        "content_type": detected_mime,
+        "uploaded_at": utc_now().isoformat(),
+    }
+
+
+@router.get(
+    "/evidence-files/{filename}",
+    status_code=status.HTTP_200_OK,
+)
+async def download_evidence_file(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Securely download an uploaded pilot evidence document.
+    - Accessible to all authenticated platform users (STARTUP, GOVERNMENT, EVALUATOR, ADMIN).
+    """
+    from fastapi.responses import FileResponse
+
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "evidence")
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(upload_dir, safe_filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requested evidence file not found on server",
+        )
+
+    return FileResponse(
+        path=file_path,
+        filename=safe_filename,
+        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+    )
+
 
 
 @router.get(

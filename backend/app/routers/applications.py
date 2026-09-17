@@ -452,3 +452,84 @@ async def change_application_status(
     await db.commit()
     refreshed_updated = await crud_application.get_application_by_id(db, updated.id)
     return serialize_application_response(refreshed_updated)
+
+
+@router.post(
+    "/{application_id}/respond-invite",
+    response_model=ApplicationResponse,
+)
+async def respond_to_challenge_invite(
+    application_id: int,
+    payload: dict,
+    current_user: User = Depends(require_startup),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Startup accepts or rejects a government tender invitation.
+    - STARTUP only for its own application.
+    - action: "ACCEPT" -> transitions application to SUBMITTED or UNDER_REVIEW.
+    - action: "REJECT" -> transitions application to WITHDRAWN.
+    - Notifies the government challenge owner.
+    """
+    application = await crud_application.get_application_by_id(db, application_id)
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    if application.startup_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only respond to invitations for your own startup",
+        )
+
+    action = (payload.get("action") or "").upper()
+    if action not in {"ACCEPT", "REJECT"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Action must be either 'ACCEPT' or 'REJECT'",
+        )
+
+    challenge_title = application.challenge.title
+    government_user_id = application.challenge.government_user_id
+
+    if action == "ACCEPT":
+        new_status = ApplicationStatus.SUBMITTED
+        notif_msg = f"Startup '{current_user.name}' has ACCEPTED your invitation for challenge '{challenge_title}'."
+    else:
+        new_status = ApplicationStatus.WITHDRAWN
+        notif_msg = f"Startup '{current_user.name}' has DECLINED your invitation for challenge '{challenge_title}'."
+
+    updated = await crud_application.update_application_status(
+        db=db,
+        db_application=application,
+        new_status=new_status,
+    )
+
+    # Notify Government
+    from app.crud import notification as crud_notif
+    from app.models.notification import NotificationType
+    await crud_notif.create_notification(
+        db=db,
+        user_id=government_user_id,
+        notification_type=NotificationType.APPLICATION_SUBMITTED if action == "ACCEPT" else NotificationType.APPLICATION_WITHDRAWN,
+        title="Startup Tender Invite Response",
+        message=notif_msg,
+        resource_type="application",
+        resource_id=application.id,
+    )
+
+    await record_activity(
+        db=db,
+        actor_user_id=current_user.id,
+        action=ActivityAction.APPLICATION_SUBMITTED if action == "ACCEPT" else ActivityAction.APPLICATION_WITHDRAWN,
+        resource_type="application",
+        resource_id=application.id,
+        description=notif_msg,
+    )
+
+    await db.commit()
+    refreshed_updated = await crud_application.get_application_by_id(db, updated.id)
+    return serialize_application_response(refreshed_updated)
+

@@ -12,6 +12,7 @@ export type ChallengeStatus =
 
 export type ApplicationStatus = 
   | 'DRAFT' 
+  | 'INVITED'
   | 'SUBMITTED' 
   | 'UNDER_REVIEW' 
   | 'SHORTLISTED' 
@@ -238,6 +239,9 @@ export interface MatchResponse {
   challenge_id: number;
   startup_id: number;
   match_score: number;
+  matched_domains?: string[];
+  matched_skills?: string[];
+  matched_technologies?: string[];
   matched_kpis: string[];
   explanation: string[];
   breakdown: Record<string, number>;

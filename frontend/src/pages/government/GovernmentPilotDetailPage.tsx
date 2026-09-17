@@ -10,10 +10,15 @@ import {
   FileText,
   Building,
   Target,
+  Sparkles,
+  TrendingUp,
+  FileCheck2,
 } from 'lucide-react';
 import pilotService from '../../services/pilotService';
 import challengeService from '../../services/challengeService';
 import submissionService from '../../services/submissionService';
+import evaluationService from '../../services/evaluationService';
+import startupService from '../../services/startupService';
 import PilotTimeline from '../../components/timeline/PilotTimeline';
 import { useToast } from '../../context/ToastContext';
 
@@ -35,10 +40,30 @@ export const GovernmentPilotDetailPage: React.FC = () => {
     enabled: !!pilot?.challenge_id,
   });
 
+  const { data: startupProfile } = useQuery({
+    queryKey: ['startup-profile', pilot?.startup_id],
+    queryFn: () => startupService.getStartupProfile(pilot!.startup_id),
+    enabled: !!pilot?.startup_id,
+  });
+
   const { data: submissions } = useQuery({
     queryKey: ['pilot-submissions', pilotId],
     queryFn: () => submissionService.listSubmissions({ pilot_id: pilotId }),
     enabled: !!pilotId,
+  });
+
+  const submission = submissions?.[0];
+
+  const { data: evaluations } = useQuery({
+    queryKey: ['evaluations-submission', submission?.id],
+    queryFn: () => evaluationService.getEvaluationsBySubmission(submission!.id),
+    enabled: !!submission?.id,
+  });
+
+  const { data: evalSummary } = useQuery({
+    queryKey: ['evaluation-summary', submission?.id],
+    queryFn: () => evaluationService.getEvaluationSummary(submission!.id),
+    enabled: !!submission?.id,
   });
 
   const completeMutation = useMutation({
@@ -46,6 +71,7 @@ export const GovernmentPilotDetailPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pilot', pilotId] });
       queryClient.invalidateQueries({ queryKey: ['pilots-all'] });
+      queryClient.invalidateQueries({ queryKey: ['government-dashboard'] });
       success('Pilot marked completed', 'Ready to finalize contract and scale-up award.');
     },
     onError: (err: any) => {
@@ -73,7 +99,7 @@ export const GovernmentPilotDetailPage: React.FC = () => {
     );
   }
 
-  const submission = submissions?.[0];
+  const hasCompletedEvaluations = (evaluations && evaluations.length > 0) || false;
 
   return (
     <div className="space-y-6">
@@ -126,8 +152,43 @@ export const GovernmentPilotDetailPage: React.FC = () => {
             >
               <Award className="w-4 h-4 text-purple-600" /> Evaluations Workspace
             </Link>
+
+            {pilot.status === 'COMPLETED' && (
+              <Link
+                to="/government/contracts"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-sm"
+              >
+                <FileText className="w-4 h-4 text-emerald-600" /> Issue Scale-Up Contract
+              </Link>
+            )}
           </div>
         </div>
+
+        {/* Associated Startup Details */}
+        {startupProfile && (
+          <div className="mt-5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4 text-gov-blue" />
+                  <span className="text-sm font-bold text-slate-900">{startupProfile.company_name}</span>
+                  {startupProfile.industry && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-gov-blue">
+                      {startupProfile.industry}
+                    </span>
+                  )}
+                </div>
+                {startupProfile.description && (
+                  <p className="text-xs text-slate-600 mt-1">{startupProfile.description}</p>
+                )}
+              </div>
+              <div className="text-xs text-slate-500 flex items-center gap-3">
+                {startupProfile.location && <span>📍 {startupProfile.location}</span>}
+                {startupProfile.team_size && <span>👥 Team: {startupProfile.team_size}</span>}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-6 text-xs text-slate-600">
           <div>
@@ -150,8 +211,90 @@ export const GovernmentPilotDetailPage: React.FC = () => {
         applicationStatus="SHORTLISTED"
         pilotStatus={pilot.status}
         submissionStatus={submission?.status}
-        hasEvaluations={false}
+        hasEvaluations={hasCompletedEvaluations}
+        isAwarded={pilot.status === 'COMPLETED'}
       />
+
+      {/* Evaluator Scorecard Summary (If evaluations exist) */}
+      {evalSummary && evalSummary.total_evaluations > 0 && (
+        <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+            <div>
+              <h3 className="text-sm font-bold text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                <Award className="w-4 h-4 text-purple-600" />
+                Certified Independent Evaluator Results
+              </h3>
+              <p className="text-xs text-purple-700">
+                {evalSummary.total_evaluations} Evaluator(s) recorded scoring for this pilot project
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-purple-600 block">Overall Mean Score</span>
+              <span className="text-2xl font-black text-purple-900">
+                {evalSummary.average_overall_score?.toFixed(1) || '—'} / 100
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            <div className="p-3 bg-purple-50 rounded-xl">
+              <span className="text-[10px] text-purple-700 font-semibold block">Technical</span>
+              <span className="text-base font-bold text-purple-900">
+                {evalSummary.average_technical_score?.toFixed(1) || '—'}
+              </span>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-xl">
+              <span className="text-[10px] text-purple-700 font-semibold block">KPI Benchmarks</span>
+              <span className="text-base font-bold text-purple-900">
+                {evalSummary.average_kpi_score?.toFixed(1) || '—'}
+              </span>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-xl">
+              <span className="text-[10px] text-purple-700 font-semibold block">Innovation</span>
+              <span className="text-base font-bold text-purple-900">
+                {evalSummary.average_innovation_score?.toFixed(1) || '—'}
+              </span>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-xl">
+              <span className="text-[10px] text-purple-700 font-semibold block">Feasibility</span>
+              <span className="text-base font-bold text-purple-900">
+                {evalSummary.average_feasibility_score?.toFixed(1) || '—'}
+              </span>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-xl">
+              <span className="text-[10px] text-purple-700 font-semibold block">Impact</span>
+              <span className="text-base font-bold text-purple-900">
+                {evalSummary.average_impact_score?.toFixed(1) || '—'}
+              </span>
+            </div>
+          </div>
+
+          {evaluations && evaluations.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Evaluator Scorecards & Notes</h4>
+              {evaluations.map((ev) => (
+                <div key={ev.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900">
+                      Evaluator #{ev.evaluator_id} • Score: {ev.overall_score?.toFixed(1)} / 100
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        ev.recommendation === 'RECOMMEND'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {ev.recommendation}
+                    </span>
+                  </div>
+                  {ev.comments && <p className="text-slate-600 italic">"{ev.comments}"</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Submission Evidence Review (If startup has submitted) */}
       {submission && (

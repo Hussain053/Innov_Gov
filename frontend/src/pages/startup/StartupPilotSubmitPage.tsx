@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -6,15 +6,33 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileText,
-  FileCheck2,
   Paperclip,
   Sparkles,
+  Trash2,
+  FileCheck2,
+  ExternalLink,
+  Plus,
   AlertCircle,
-  Link2,
+  Loader2,
 } from 'lucide-react';
 import pilotService from '../../services/pilotService';
 import submissionService from '../../services/submissionService';
 import { useToast } from '../../context/ToastContext';
+
+interface MeasuredKpiRow {
+  name: string;
+  target: string;
+  actual: string;
+  unit: string;
+  status: 'MET' | 'EXCEEDED' | 'IN_PROGRESS';
+}
+
+interface UploadedFileItem {
+  filename: string;
+  saved_name: string;
+  url: string;
+  size_bytes: number;
+}
 
 export const StartupPilotSubmitPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,14 +40,15 @@ export const StartupPilotSubmitPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { success, error } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: pilot } = useQuery({
+  const { data: pilot, isLoading: pilotLoading } = useQuery({
     queryKey: ['pilot', pilotId],
     queryFn: () => pilotService.getPilot(pilotId),
     enabled: !!pilotId,
   });
 
-  const { data: submissions, isLoading } = useQuery({
+  const { data: submissions } = useQuery({
     queryKey: ['pilot-submissions', pilotId],
     queryFn: () => submissionService.listSubmissions({ pilot_id: pilotId }),
     enabled: !!pilotId,
@@ -37,71 +56,160 @@ export const StartupPilotSubmitPage: React.FC = () => {
 
   const existingSubmission = submissions?.[0];
 
-  const [resultsText, setResultsText] = useState('');
-  const [kpiResultsStr, setKpiResultsStr] = useState('');
-  const [evidenceStr, setEvidenceStr] = useState('');
-  const [mockFileName, setMockFileName] = useState('field_telemetry_dataset_90days.csv');
+  const [resultsText, setResultsText] = useState(
+    'Successfully deployed and operated sandbox microgrid testbed over the 90-day observation trial. Achieved 99.98% continuous uptime with automatic sub-3 second failover during grid outage simulations.'
+  );
+
+  const [kpiRows, setKpiRows] = useState<MeasuredKpiRow[]>([
+    { name: 'Operational Uptime', target: '>=99.9%', actual: '99.98%', unit: '%', status: 'EXCEEDED' },
+    { name: 'System Efficiency', target: '>=90.0%', actual: '94.2%', unit: '%', status: 'EXCEEDED' },
+    { name: 'Failover Switch Time', target: '<5s', actual: '2.4s', unit: 'sec', status: 'MET' },
+    { name: 'Cloud SCADA Telemetry', target: 'Real-time', actual: 'Active (1-min freq)', unit: 'Status', status: 'MET' },
+  ]);
+
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   useEffect(() => {
     if (existingSubmission) {
-      setResultsText(existingSubmission.results || '');
-      setKpiResultsStr(
-        existingSubmission.kpi_results
-          ? JSON.stringify(existingSubmission.kpi_results, null, 2)
-          : '{\n  "efficiency": "93.4%",\n  "uptime": "99.92%",\n  "failure_rate": "0.02%"\n}'
-      );
-      setEvidenceStr(
-        existingSubmission.evidence
-          ? JSON.stringify(existingSubmission.evidence, null, 2)
-          : '{\n  "scada_log_url": "https://solartech.io/telemetry/pilot-04.log",\n  "audit_report": "https://solartech.io/reports/third-party-audit.pdf",\n  "photo_proof": "https://solartech.io/evidence/installation-facility-4.jpg"\n}'
-      );
-    } else {
-      setResultsText(
-        'Successfully completed 90-day micro-grid pilot at Municipal Facility #4. Peak inverter efficiency exceeded 93% with zero unscheduled downtime across the entire observation window.'
-      );
-      setKpiResultsStr(
-        '{\n  "efficiency": "93.4%",\n  "uptime": "99.92%",\n  "peak_capacity_kw": 52.4,\n  "grid_loss_reduction": "28%"\n}'
-      );
-      setEvidenceStr(
-        '{\n  "scada_log_url": "https://solartech.io/telemetry/pilot-04.log",\n  "audit_report": "https://solartech.io/reports/third-party-audit.pdf",\n  "hardware_serial": "ST-INV-2026-X99",\n  "facility_endorsement": "https://solartech.io/evidence/superintendent-signoff.pdf"\n}'
-      );
+      if (existingSubmission.results) {
+        setResultsText(existingSubmission.results);
+      }
+      if (existingSubmission.kpi_results && typeof existingSubmission.kpi_results === 'object') {
+        const rows: MeasuredKpiRow[] = Object.entries(existingSubmission.kpi_results).map(([k, v]) => ({
+          name: k.replace(/_/g, ' ').toUpperCase(),
+          target: 'Standard Benchmark',
+          actual: String(v),
+          unit: '',
+          status: 'MET',
+        }));
+        if (rows.length > 0) setKpiRows(rows);
+      }
+      if (existingSubmission.evidence && typeof existingSubmission.evidence === 'object') {
+        const files: UploadedFileItem[] = [];
+        Object.entries(existingSubmission.evidence).forEach(([k, v]) => {
+          if (typeof v === 'string') {
+            files.push({
+              filename: k,
+              saved_name: k,
+              url: v,
+              size_bytes: 1024 * 150,
+            });
+          } else if (typeof v === 'object' && v !== null && (v as any).url) {
+            files.push({
+              filename: (v as any).filename || k,
+              saved_name: (v as any).saved_name || k,
+              url: (v as any).url,
+              size_bytes: (v as any).size_bytes || 1024 * 100,
+            });
+          }
+        });
+        if (files.length > 0) setUploadedFiles(files);
+      }
+    } else if (pilot?.kpis && typeof pilot.kpis === 'object') {
+      const rows: MeasuredKpiRow[] = Object.entries(pilot.kpis).map(([k, v]) => ({
+        name: k.replace(/_/g, ' ').toUpperCase(),
+        target: String(v),
+        actual: String(v),
+        unit: '',
+        status: 'MET',
+      }));
+      if (rows.length > 0) setKpiRows(rows);
     }
-  }, [existingSubmission]);
+  }, [existingSubmission, pilot]);
+
+  // Handle Real File Upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingFile(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await submissionService.uploadEvidenceFile(file);
+        setUploadedFiles((prev) => [
+          ...prev,
+          {
+            filename: res.filename,
+            saved_name: res.saved_name,
+            url: res.url,
+            size_bytes: res.size_bytes,
+          },
+        ]);
+      }
+      success('File uploaded', 'Evidence artifact securely stored on server.');
+    } catch (err: any) {
+      error('File upload failed', err.response?.data?.detail || 'Could not upload evidence file.');
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddKpiRow = () => {
+    setKpiRows((prev) => [
+      ...prev,
+      { name: '', target: '', actual: '', unit: '', status: 'MET' },
+    ]);
+  };
+
+  const handleRemoveKpiRow = (index: number) => {
+    setKpiRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleKpiChange = (index: number, field: keyof MeasuredKpiRow, val: string) => {
+    setKpiRows((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: val } : item))
+    );
+  };
 
   const saveAndSubmitMutation = useMutation({
     mutationFn: async () => {
-      let parsedKpi: any = null;
-      let parsedEvidence: any = null;
+      // Build structured KPI dictionary
+      const kpiDict: Record<string, any> = {};
+      kpiRows.forEach((row) => {
+        if (row.name.trim()) {
+          kpiDict[row.name.trim().toLowerCase().replace(/\s+/g, '_')] = {
+            target: row.target,
+            actual_measured: row.actual,
+            unit: row.unit,
+            status: row.status,
+          };
+        }
+      });
 
-      try {
-        if (kpiResultsStr.trim()) parsedKpi = JSON.parse(kpiResultsStr);
-      } catch {
-        throw new Error('Invalid KPI Results JSON format');
-      }
-
-      try {
-        if (evidenceStr.trim()) parsedEvidence = JSON.parse(evidenceStr);
-      } catch {
-        throw new Error('Invalid Evidence JSON format');
-      }
+      // Build structured Evidence dictionary
+      const evidenceDict: Record<string, any> = {};
+      uploadedFiles.forEach((file, idx) => {
+        evidenceDict[`document_${idx + 1}`] = {
+          filename: file.filename,
+          url: file.url,
+          size_bytes: file.size_bytes,
+        };
+      });
 
       let subId = existingSubmission?.id;
 
       if (!subId) {
-        // Create draft submission first
+        // Create draft submission
         const created = await submissionService.createSubmission({
           pilot_id: pilotId,
           results: resultsText,
-          kpi_results: parsedKpi,
-          evidence: parsedEvidence,
+          kpi_results: kpiDict,
+          evidence: evidenceDict,
         });
         subId = created.id;
       } else if (existingSubmission && existingSubmission.status === 'DRAFT') {
         // Update draft submission
         await submissionService.updateSubmission(subId, {
           results: resultsText,
-          kpi_results: parsedKpi,
-          evidence: parsedEvidence,
+          kpi_results: kpiDict,
+          evidence: evidenceDict,
         });
       }
 
@@ -116,7 +224,7 @@ export const StartupPilotSubmitPage: React.FC = () => {
       navigate('/startup/submissions');
     },
     onError: (err: any) => {
-      error('Submission failed', err.message || err.response?.data?.detail || 'An error occurred during submission');
+      error('Submission failed', err.response?.data?.detail || err.message || 'An error occurred during submission');
     },
   });
 
@@ -139,9 +247,9 @@ export const StartupPilotSubmitPage: React.FC = () => {
             <UploadCloud className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gov-navy">Pilot Evidence & KPI Submission</h1>
+            <h1 className="text-xl font-bold text-gov-navy">Pilot Evidence &amp; Deliverables Submission</h1>
             <p className="text-xs text-slate-500">
-              Submit empirical telemetry, field validation benchmarks, and verifiable audit evidence.
+              Submit measured performance benchmarks, field results summary, and verifiable audit evidence.
             </p>
           </div>
         </div>
@@ -167,10 +275,10 @@ export const StartupPilotSubmitPage: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-3">
           <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
             <FileText className="w-4 h-4 text-gov-blue" />
-            Detailed Pilot Results & Deliverables Summary
+            Detailed Pilot Results &amp; Deliverables Summary
           </h3>
           <p className="text-xs text-slate-500">
-            Explain outcomes against the pilot's success criteria and task description.
+            Describe the deployment outcome against the sanctioned pilot's success criteria and milestones.
           </p>
           <textarea
             rows={4}
@@ -182,78 +290,211 @@ export const StartupPilotSubmitPage: React.FC = () => {
           />
         </div>
 
-        {/* KPI Results JSON */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              Measured KPI Benchmark Results (JSON)
-            </h3>
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-              Evaluator Scored
-            </span>
-          </div>
-          <p className="text-xs text-slate-500">
-            Recorded performance benchmarks that will be scored by the appointed evaluation panel.
-          </p>
-          <textarea
-            rows={5}
-            required
-            disabled={isAlreadySubmitted}
-            value={kpiResultsStr}
-            onChange={(e) => setKpiResultsStr(e.target.value)}
-            className="w-full p-3 font-mono text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none bg-slate-900 text-emerald-400 disabled:opacity-80"
-          />
-        </div>
-
-        {/* Evidence & Telemetry Links */}
+        {/* Measured KPIs Table (Form-based, No Raw JSON) */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider flex items-center gap-2">
-              <Link2 className="w-4 h-4 text-purple-600" />
-              Structured Evidence & Telemetry Logs (JSON)
-            </h3>
-            <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-              Verification Proof
-            </span>
+            <div>
+              <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                Measured Performance Benchmarks (KPIs)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Empirical values recorded during the trial to be evaluated by the independent panel.
+              </p>
+            </div>
+            {!isAlreadySubmitted && (
+              <button
+                type="button"
+                onClick={handleAddKpiRow}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Metric</span>
+              </button>
+            )}
           </div>
-          <p className="text-xs text-slate-500">
-            Provide URLs to verified telemetry logs, cloud telemetry endpoints, or independent test lab certifications.
-          </p>
-          <textarea
-            rows={5}
-            required
-            disabled={isAlreadySubmitted}
-            value={evidenceStr}
-            onChange={(e) => setEvidenceStr(e.target.value)}
-            className="w-full p-3 font-mono text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none bg-slate-900 text-blue-300 disabled:opacity-80"
-          />
 
-          {/* Prototype File Attachment UI Representation */}
-          <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-dashed border-slate-300">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
-                  <Paperclip className="w-4 h-4 text-gov-blue" />
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 text-[11px] font-bold text-slate-500 uppercase px-2">
+              <span className="col-span-4">Benchmark Metric</span>
+              <span className="col-span-3">Target</span>
+              <span className="col-span-3">Actual Value Measured *</span>
+              <span className="col-span-1">Status</span>
+              {!isAlreadySubmitted && <span className="col-span-1 text-center">Action</span>}
+            </div>
+
+            {kpiRows.map((row, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200"
+              >
+                <div className="col-span-4">
+                  <input
+                    type="text"
+                    required
+                    disabled={isAlreadySubmitted}
+                    value={row.name}
+                    onChange={(e) => handleKpiChange(idx, 'name', e.target.value)}
+                    placeholder="Metric Name"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none disabled:bg-slate-100 font-medium text-slate-800"
+                  />
+                </div>
+
+                <div className="col-span-3">
+                  <input
+                    type="text"
+                    disabled={isAlreadySubmitted}
+                    value={row.target}
+                    onChange={(e) => handleKpiChange(idx, 'target', e.target.value)}
+                    placeholder="Target"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none disabled:bg-slate-100 text-slate-600"
+                  />
+                </div>
+
+                <div className="col-span-3">
+                  <input
+                    type="text"
+                    required
+                    disabled={isAlreadySubmitted}
+                    value={row.actual}
+                    onChange={(e) => handleKpiChange(idx, 'actual', e.target.value)}
+                    placeholder="e.g. 94.2% / 2.4s"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none font-bold text-emerald-700 disabled:bg-slate-100"
+                  />
+                </div>
+
+                <div className="col-span-1">
+                  <select
+                    disabled={isAlreadySubmitted}
+                    value={row.status}
+                    onChange={(e) => handleKpiChange(idx, 'status', e.target.value as any)}
+                    className="w-full px-1 py-1.5 text-[10px] font-bold bg-white border border-slate-200 rounded-lg outline-none text-emerald-700"
+                  >
+                    <option value="MET">MET</option>
+                    <option value="EXCEEDED">EXCEEDED</option>
+                    <option value="IN_PROGRESS">WIP</option>
+                  </select>
+                </div>
+
+                {!isAlreadySubmitted && (
+                  <div className="col-span-1 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveKpiRow(idx)}
+                      className="p-1 rounded text-slate-400 hover:text-rose-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Real Device File Upload & Attached Artifacts */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-gov-navy uppercase tracking-wider flex items-center gap-2">
+                <Paperclip className="w-4 h-4 text-purple-600" />
+                Upload Technical Evidence &amp; Verification Documents
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Upload real telemetry datasets, lab test certificates (IEC/ISO), superintendent sign-offs, or photo proofs directly from your device.
+              </p>
+            </div>
+          </div>
+
+          {!isAlreadySubmitted && (
+            <div className="p-6 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition-colors text-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                id="file-upload-input"
+              />
+              <label
+                htmlFor="file-upload-input"
+                className="cursor-pointer inline-flex flex-col items-center justify-center space-y-2"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-xs">
+                  {isUploadingFile ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-6 h-6" />
+                  )}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800">{mockFileName}</p>
-                  <p className="text-[11px] text-slate-500">14.2 MB • SHA-256 Telemetry Hash Verified</p>
+                  <span className="text-xs font-bold text-purple-700 hover:underline">
+                    Click to select files from device
+                  </span>
+                  <span className="text-xs text-slate-500"> or drag and drop</span>
                 </div>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                Attached
-              </span>
+                <p className="text-[11px] text-slate-400">
+                  Supported: PDF, CSV, JSON, PNG, JPG, LOG (Up to 25MB each)
+                </p>
+              </label>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2">
-              * Prototype representation compatible with existing evidence schema. Ready for future S3/Supabase binary bucket integration.
-            </p>
+          )}
+
+          {/* Uploaded Files List */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Attached Artifacts ({uploadedFiles.length})
+            </h4>
+
+            {uploadedFiles.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No files attached yet.</p>
+            ) : (
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                {uploadedFiles.map((f, idx) => (
+                  <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileCheck2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <div className="truncate">
+                        <span className="font-semibold text-slate-800 truncate block">
+                          {f.filename}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {(f.size_bytes / 1024).toFixed(1)} KB • Stored securely in audit repository
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 hover:underline px-2 py-1 bg-purple-50 rounded"
+                      >
+                        <span>View</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+
+                      {!isAlreadySubmitted && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(idx)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Submit Actions */}
         {!isAlreadySubmitted && (
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <Link
               to={`/startup/pilots/${pilotId}`}
               className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
@@ -262,14 +503,14 @@ export const StartupPilotSubmitPage: React.FC = () => {
             </Link>
             <button
               type="submit"
-              disabled={saveAndSubmitMutation.isPending}
+              disabled={saveAndSubmitMutation.isPending || isUploadingFile}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
             >
               {saveAndSubmitMutation.isPending ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <UploadCloud className="w-4 h-4" /> Finalize & Submit Evidence
+                  <UploadCloud className="w-4 h-4" /> Finalize &amp; Submit Pilot Evidence
                 </>
               )}
             </button>

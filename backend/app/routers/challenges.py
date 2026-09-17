@@ -16,13 +16,16 @@ from app.models.challenge import ChallengeStatus
 from app.models.notification import NotificationType
 from app.models.pilot import PilotStatus
 from app.models.user import User, UserRole
+from app.models.startup import StartupProfile
 from app.schemas.challenge import (
     ChallengeCreate,
     ChallengeResponse,
     ChallengeUpdate,
 )
 from app.schemas.decision import GovernmentDecisionCreate, GovernmentDecisionEnum, GovernmentDecisionResponse
+from app.schemas.matching import MatchResponse
 from app.services.activity import record_activity
+from app.services.matching import calculate_match
 from app.services.notifications import crud_notification
 
 router = APIRouter(prefix="/challenges", tags=["Challenges"])
@@ -200,6 +203,53 @@ async def get_challenge(
             detail="Challenge not found",
         )
     return challenge
+
+
+@router.get(
+    "/{challenge_id}/eligible-startups",
+    response_model=List[MatchResponse],
+)
+async def get_eligible_startups_for_challenge(
+    challenge_id: int,
+    current_user: User = Depends(require_government),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Identify and rank relevant/recommended startups for a challenge.
+    - GOVERNMENT (owner of challenge) and ADMIN only.
+    - Uses transparent deterministic matching based on domain, skills, tech, experience, team, and KPIs.
+    - Startups are recommended for review/shortlisting (not automatic award).
+    """
+    challenge = await crud_challenge.get_challenge_by_id(db, challenge_id)
+    if not challenge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Challenge not found",
+        )
+
+    if current_user.role != UserRole.ADMIN and challenge.government_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view matches for this challenge",
+        )
+
+    result = await db.execute(select(StartupProfile))
+    profiles = list(result.scalars().all())
+
+    matches = []
+    for p in profiles:
+        if not p.company_name:
+            continue
+        if not (p.description or p.experience or p.industry or p.location or p.kpi_data):
+            continue
+
+        m = calculate_match(p, challenge)
+        m.startup_name = p.company_name
+        m.industry = p.industry
+        matches.append(m)
+
+    matches.sort(key=lambda m: (m.match_score, m.startup_name or ""), reverse=True)
+    return matches
 
 
 @router.put(
@@ -394,3 +444,247 @@ async def delete_challenge(
     await crud_challenge.delete_challenge(db=db, db_challenge=challenge)
     await db.commit()
     return None
+
+
+@router.get(
+    "/evaluators/list",
+    status_code=status.HTTP_200_OK,
+)
+async def list_available_evaluators(
+    current_user: User = Depends(require_government),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Fetch list of active evaluators from DB for evaluator assignment dropdown.
+    - Restricted to GOVERNMENT and ADMIN users.
+    - Returns real evaluator users with id, name, email, organization.
+    """
+    result = await db.execute(
+        select(User)
+        .where(User.role == UserRole.EVALUATOR, User.is_active.is_(True))
+        .order_by(User.name)
+    )
+    evaluators = list(result.scalars().all())
+    return [
+        {
+            "id": ev.id,
+            "name": ev.name,
+            "email": ev.email,
+            "organization": ev.organization,
+            "role": ev.role.value if hasattr(ev.role, "value") else str(ev.role),
+            "is_active": ev.is_active,
+        }
+        for ev in evaluators
+    ]
+
+
+@router.get(
+    "/{challenge_id}/pdf",
+    status_code=status.HTTP_200_OK,
+)
+async def download_challenge_tender_pdf(
+    challenge_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Download official government-formatted challenge tender specification as PDF.
+    - Accessible to all authenticated users (STARTUP, GOVERNMENT, EVALUATOR, ADMIN).
+    """
+    from fastapi.responses import Response
+    from app.services.pdf_generator import generate_challenge_tender_pdf
+
+    challenge = await crud_challenge.get_challenge_by_id(db, challenge_id)
+    if not challenge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Challenge not found",
+        )
+
+    pdf_bytes = generate_challenge_tender_pdf(challenge)
+    filename = f"challenge_tender_{challenge.id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
+
+
+@router.post(
+    "/{challenge_id}/assign-evaluator",
+    response_model=ChallengeResponse,
+)
+async def assign_evaluator_to_challenge(
+    challenge_id: int,
+    assignment_payload: dict,
+    current_user: User = Depends(require_government),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Assign an accredited evaluator from DB to a challenge.
+    - GOVERNMENT (challenge owner) and ADMIN only.
+    - Saves assignment in DB challenge requirements metadata.
+    - Notifies evaluator and creates evaluator assignments for associated submissions.
+    """
+    challenge = await crud_challenge.get_challenge_by_id(db, challenge_id)
+    if not challenge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Challenge not found",
+        )
+
+    if current_user.role != UserRole.ADMIN and challenge.government_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to assign evaluators for this challenge",
+        )
+
+    evaluator_id = assignment_payload.get("evaluator_id")
+    if not evaluator_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="evaluator_id is required",
+        )
+
+    res = await db.execute(select(User).where(User.id == evaluator_id))
+    eval_user = res.scalar_one_or_none()
+    if not eval_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evaluator user not found",
+        )
+
+    if eval_user.role != UserRole.EVALUATOR or not eval_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Target user must be an active user with EVALUATOR role",
+        )
+
+    reqs = dict(challenge.requirements or {})
+    reqs["assigned_evaluator"] = {
+        "id": eval_user.id,
+        "name": eval_user.name,
+        "email": eval_user.email,
+        "organization": eval_user.organization,
+        "assigned_at": utc_now().isoformat(),
+    }
+    challenge.requirements = reqs
+    challenge.updated_at = utc_now()
+
+    # Create notification for evaluator
+    await crud_notification.create_notification(
+        db=db,
+        user_id=eval_user.id,
+        notification_type=NotificationType.PILOT_ASSIGNED,
+        title="Appointed as Challenge Evaluator",
+        message=f"You have been assigned as the technical evaluator for government challenge: '{challenge.title}'.",
+        resource_type="challenge",
+        resource_id=challenge.id,
+    )
+
+    # Record activity log
+    await record_activity(
+        db=db,
+        actor_user_id=current_user.id,
+        action=ActivityAction.EVALUATION_CREATED,
+        resource_type="challenge",
+        resource_id=challenge.id,
+        description=f"Evaluator '{eval_user.name}' assigned to challenge '{challenge.title}'.",
+    )
+
+    await db.commit()
+    await db.refresh(challenge)
+    return challenge
+
+
+@router.post(
+    "/{challenge_id}/invite",
+    status_code=status.HTTP_200_OK,
+)
+async def invite_startup_to_challenge(
+    challenge_id: int,
+    payload: dict,
+    current_user: User = Depends(require_government),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send an official government tender invitation to a matched startup.
+    - GOVERNMENT (owner of challenge) and ADMIN only.
+    - Creates or flags an Application for the startup.
+    - Sends real notification to the startup.
+    """
+    from app.crud import application as crud_app
+    from app.schemas.application import ApplicationCreate
+
+    challenge = await crud_challenge.get_challenge_by_id(db, challenge_id)
+    if not challenge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Challenge not found",
+        )
+
+    if current_user.role != UserRole.ADMIN and challenge.government_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to send invites for this challenge",
+        )
+
+    startup_id = payload.get("startup_id")
+    if not startup_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="startup_id is required",
+        )
+
+    res = await db.execute(select(User).where(User.id == startup_id))
+    startup_user = res.scalar_one_or_none()
+    if not startup_user or startup_user.role != UserRole.STARTUP:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Target user must be a registered startup",
+        )
+
+    # Check if application already exists
+    existing_app = await crud_app.get_application_by_challenge_and_startup(
+        db=db, challenge_id=challenge.id, startup_id=startup_user.id
+    )
+    if not existing_app:
+        existing_app = await crud_app.create_application(
+            db=db,
+            application_in=ApplicationCreate(challenge_id=challenge.id),
+            startup_id=startup_user.id,
+        )
+
+    # Send Notification to Startup
+    await crud_notification.create_notification(
+        db=db,
+        user_id=startup_user.id,
+        notification_type=NotificationType.APPLICATION_SHORTLISTED,
+        title="Government Tender Invitation",
+        message=f"Government Department has invited your startup to participate in: '{challenge.title}'. Please review and accept/submit your proposal.",
+        resource_type="challenge",
+        resource_id=challenge.id,
+    )
+
+    # Record Activity Log
+    await record_activity(
+        db=db,
+        actor_user_id=current_user.id,
+        action=ActivityAction.APPLICATION_CREATED,
+        resource_type="application",
+        resource_id=existing_app.id,
+        description=f"Government invited startup '{startup_user.name}' for challenge '{challenge.title}'.",
+    )
+
+    await db.commit()
+
+    return {
+        "status": "INVITED",
+        "message": f"Invitation successfully sent to startup '{startup_user.name}'",
+        "application_id": existing_app.id,
+        "challenge_id": challenge.id,
+    }
+

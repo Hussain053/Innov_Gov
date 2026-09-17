@@ -17,6 +17,8 @@ import {
 import challengeService, { ChallengeCreateParams } from '../../services/challengeService';
 import { ChallengeStatus } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import RequirementsFormBuilder, { RequirementField } from '../../components/common/RequirementsFormBuilder';
+import KpiFormBuilder, { KpiItem } from '../../components/common/KpiFormBuilder';
 
 export const GovernmentCreateChallengePage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,22 +37,26 @@ export const GovernmentCreateChallengePage: React.FC = () => {
   );
   const [category, setCategory] = useState('Solar Energy');
 
-  // Section 2: Requirements / Eligibility
+  // Section 2: Requirements / Eligibility Form State
   const [location, setLocation] = useState('Dharwad & Hubballi Municipal Zones, Karnataka');
-  const [minTeamSize, setMinTeamSize] = useState(5);
-  const [domainReq, setDomainReq] = useState('CleanTech / Solar Energy');
-  const [customReqStr, setCustomReqStr] = useState(
-    '{\n  "min_team_size": 5,\n  "domain": "Solar Energy",\n  "trl_required": 7,\n  "hardware_warranty_years": 3\n}'
-  );
+  const [minTeamSize, setMinTeamSize] = useState<number>(5);
+  const [domainReq, setDomainReq] = useState<string>('Solar Energy');
+  const [trlRequired, setTrlRequired] = useState<number>(7);
+  const [warrantyYears, setWarrantyYears] = useState<number>(3);
+  const [customReqFields, setCustomReqFields] = useState<RequirementField[]>([
+    { key: 'certification', value: 'ISO 9001 or equivalent' }
+  ]);
 
   // Section 3: Budget & Timeline
   const [budget, setBudget] = useState<number>(250000);
   const [deadline, setDeadline] = useState('2026-11-30');
 
-  // Section 4: Target KPIs
-  const [kpiStr, setKpiStr] = useState(
-    '{\n  "efficiency": ">=90%",\n  "uptime": ">=99.9%",\n  "failover_seconds": "<5",\n  "remote_telemetry": true\n}'
-  );
+  // Section 4: Target KPIs Form State
+  const [kpis, setKpis] = useState<KpiItem[]>([
+    { name: 'Inverter Efficiency', target: '>=90%', unit: '%', method: 'Grid telemetry' },
+    { name: 'System Uptime', target: '>=99.9%', unit: '%', method: 'Continuous remote monitoring' },
+    { name: 'Failover Response Time', target: '<5', unit: 'sec', method: 'SCADA load breaker log' },
+  ]);
 
   // Section 5: Status
   const [targetStatus, setTargetStatus] = useState<ChallengeStatus>('OPEN');
@@ -70,22 +76,26 @@ export const GovernmentCreateChallengePage: React.FC = () => {
   });
 
   const handleSubmit = (publishImmediately: boolean) => {
-    let parsedReq: any = null;
-    let parsedKpis: any = null;
+    // Build structured requirements
+    const reqObj: Record<string, any> = {
+      min_team_size: minTeamSize,
+      domain: domainReq,
+      trl_required: trlRequired,
+      warranty_years: warrantyYears,
+    };
+    customReqFields.forEach((cf) => {
+      if (cf.key && cf.key.trim()) {
+        reqObj[cf.key.trim()] = cf.value.trim();
+      }
+    });
 
-    try {
-      if (customReqStr.trim()) parsedReq = JSON.parse(customReqStr);
-    } catch {
-      error('Invalid Requirements JSON', 'Please verify your JSON syntax in Section 2');
-      return;
-    }
-
-    try {
-      if (kpiStr.trim()) parsedKpis = JSON.parse(kpiStr);
-    } catch {
-      error('Invalid KPIs JSON', 'Please verify your JSON syntax in Section 4');
-      return;
-    }
+    // Build structured KPIs
+    const kpiObj: Record<string, any> = {};
+    kpis.forEach((k) => {
+      if (k.name && k.name.trim()) {
+        kpiObj[k.name.trim()] = k.unit ? `${k.target} ${k.unit}`.trim() : k.target;
+      }
+    });
 
     createMutation.mutate({
       title,
@@ -96,8 +106,8 @@ export const GovernmentCreateChallengePage: React.FC = () => {
       budget: Number(budget) > 0 ? Number(budget) : undefined,
       application_deadline: deadline && deadline.trim() ? deadline.trim() : undefined,
       status: publishImmediately ? 'OPEN' : 'DRAFT',
-      requirements: parsedReq,
-      kpis: parsedKpis,
+      requirements: reqObj,
+      kpis: kpiObj,
     });
   };
 
@@ -259,20 +269,21 @@ export const GovernmentCreateChallengePage: React.FC = () => {
           </h3>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Specify technical capabilities or team criteria. The AI matching engine evaluates these requirements against startup profiles.
+            Specify technical capabilities and team criteria using the structured form below. The matching engine evaluates these requirements against startup capabilities.
           </p>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Structured Criteria (JSON)
-            </label>
-            <textarea
-              rows={6}
-              value={customReqStr}
-              onChange={(e) => setCustomReqStr(e.target.value)}
-              className="w-full p-3 font-mono text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none bg-slate-900 text-blue-300"
-            />
-          </div>
+          <RequirementsFormBuilder
+            minTeamSize={minTeamSize}
+            onMinTeamSizeChange={setMinTeamSize}
+            domain={domainReq}
+            onDomainChange={setDomainReq}
+            trlRequired={trlRequired}
+            onTrlRequiredChange={setTrlRequired}
+            warrantyYears={warrantyYears}
+            onWarrantyYearsChange={setWarrantyYears}
+            customFields={customReqFields}
+            onCustomFieldsChange={setCustomReqFields}
+          />
 
           <div className="flex justify-between pt-3">
             <button
@@ -359,17 +370,13 @@ export const GovernmentCreateChallengePage: React.FC = () => {
           </h3>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Empirical success thresholds that the startup must satisfy during the field trial.
+            Specify empirical benchmark criteria and required metrics using the structured form below.
           </p>
 
-          <div>
-            <textarea
-              rows={6}
-              value={kpiStr}
-              onChange={(e) => setKpiStr(e.target.value)}
-              className="w-full p-3 font-mono text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue outline-none bg-slate-900 text-emerald-400"
-            />
-          </div>
+          <KpiFormBuilder
+            kpis={kpis}
+            onChange={setKpis}
+          />
 
           <div className="flex justify-between pt-3">
             <button

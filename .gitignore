@@ -29,3 +29,6 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+
+
+Add-Content .gitignore "backend/uploads/"

@@ -45,6 +45,24 @@ export const submissionService = {
     const response = await apiClient.get<PilotSubmission>(`/pilot-submissions/${id}`);
     return response.data;
   },
+
+  uploadEvidenceFile: async (file: File): Promise<{
+    filename: string;
+    saved_name: string;
+    url: string;
+    size_bytes: number;
+    content_type: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/pilot-submissions/upload-evidence', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
 
 export default submissionService;
+

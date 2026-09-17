@@ -26,6 +26,12 @@ export const evaluatorAssignmentService = {
     });
     return response.data;
   },
+
+  listEvaluators: async (): Promise<Array<{ id: number; name: string; email: string; organization?: string }>> => {
+    const response = await apiClient.get('/evaluator-assignments/evaluators');
+    return response.data;
+  },
 };
 
 export default evaluatorAssignmentService;
+

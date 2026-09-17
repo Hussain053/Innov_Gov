@@ -106,7 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <div className="flex items-center gap-1.5">
               <span className="font-extrabold text-base tracking-tight text-white">InnoGov</span>
               <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 rounded border border-blue-400/30">
-                SIH 26136
+                OFFICIAL
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-none mt-1">Public Procurement Innovation</p>

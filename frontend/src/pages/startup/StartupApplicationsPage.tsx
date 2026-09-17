@@ -55,8 +55,31 @@ export const StartupApplicationsPage: React.FC = () => {
     },
   });
 
+  const respondInviteMutation = useMutation({
+    mutationFn: ({ appId, action }: { appId: number; action: 'ACCEPT' | 'REJECT' }) =>
+      applicationService.respondToInvite(appId, action),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['my-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['startup-dashboard'] });
+      if (variables.action === 'ACCEPT') {
+        success('Invitation Accepted', 'Application submitted to government for pilot consideration.');
+      } else {
+        success('Invitation Declined', 'Tender invitation declined.');
+      }
+    },
+    onError: (err: any) => {
+      error('Action failed', err.response?.data?.detail || 'Could not update invitation response');
+    },
+  });
+
   const getStatusBadge = (status: ApplicationStatus) => {
     switch (status) {
+      case 'INVITED':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-purple-600" /> INVITATION RECEIVED
+          </span>
+        );
       case 'DRAFT':
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">DRAFT</span>;
       case 'SUBMITTED':
@@ -84,10 +107,10 @@ export const StartupApplicationsPage: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-gov-navy flex items-center gap-2">
             <FileCheck2 className="w-5 h-5 text-gov-blue" />
-            My Tender Applications
+            My Tender Applications &amp; Invitations
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Track submission status, review stages, and government shortlisting decisions.
+            Track submission status, government invitations, review stages, and pilot shortlisting decisions.
           </p>
         </div>
         <Link
@@ -110,7 +133,7 @@ export const StartupApplicationsPage: React.FC = () => {
           <FileCheck2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
           <h3 className="text-base font-bold text-slate-800">No Applications Yet</h3>
           <p className="text-xs text-slate-500 mt-1">
-            You haven't submitted any applications to government challenges.
+            You haven't submitted any applications or received any challenge invitations.
           </p>
           <div className="mt-4">
             <Link
@@ -126,7 +149,11 @@ export const StartupApplicationsPage: React.FC = () => {
           {applications?.map((app) => (
             <div
               key={app.id}
-              className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-card hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+              className={`bg-white rounded-2xl border p-5 sm:p-6 shadow-card transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                app.status === 'INVITED'
+                  ? 'border-purple-300 ring-2 ring-purple-100 bg-purple-50/20'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
             >
               <div className="space-y-2 max-w-2xl">
                 <div className="flex items-center gap-2">
@@ -146,6 +173,25 @@ export const StartupApplicationsPage: React.FC = () => {
 
               {/* Action buttons based on state */}
               <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0">
+                {app.status === 'INVITED' && (
+                  <>
+                    <button
+                      onClick={() => respondInviteMutation.mutate({ appId: app.id, action: 'ACCEPT' })}
+                      disabled={respondInviteMutation.isPending}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Accept Invitation
+                    </button>
+                    <button
+                      onClick={() => respondInviteMutation.mutate({ appId: app.id, action: 'REJECT' })}
+                      disabled={respondInviteMutation.isPending}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Decline
+                    </button>
+                  </>
+                )}
+
                 {app.status === 'DRAFT' && (
                   <button
                     onClick={() => submitMutation.mutate(app.id)}
@@ -160,7 +206,7 @@ export const StartupApplicationsPage: React.FC = () => {
                   <button
                     onClick={() => withdrawMutation.mutate(app.id)}
                     disabled={withdrawMutation.isPending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors disabled:opacity-50"
                   >
                     <XCircle className="w-3.5 h-3.5" /> Withdraw
                   </button>

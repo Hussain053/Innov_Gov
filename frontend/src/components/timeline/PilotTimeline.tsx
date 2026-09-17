@@ -89,10 +89,10 @@ export const PilotTimeline: React.FC<PilotTimelineProps> = ({
         <div>
           <h3 className="text-sm font-bold text-gov-navy tracking-tight uppercase flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-gov-blue"></span>
-            SIH Procurement State Timeline
+            Statutory Procurement State Timeline
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time stage transitions synchronized with backend FastAPI state machine
+            Real-time stage transitions synchronized with verifiable backend state machine
           </p>
         </div>
         {isFailed ? (

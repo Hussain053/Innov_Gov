@@ -101,4 +101,4 @@ async def match_all_startups_for_challenge(
         matches.append(m)
 
     matches.sort(key=lambda m: (m.match_score, m.startup_name or ""), reverse=True)
-    return matches[:3]
+    return matches

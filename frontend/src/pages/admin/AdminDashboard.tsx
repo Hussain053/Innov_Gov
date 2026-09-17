@@ -64,7 +64,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center space-x-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-semibold uppercase tracking-wider mb-3 border border-indigo-500/30">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Platform Governance &amp; SIH 26136 Operations</span>
+            <span>Platform Governance &amp; National Operations</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Central Administrative Control Tower
