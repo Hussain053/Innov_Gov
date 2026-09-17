@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { DEMO_ACCOUNTS } from '../../mock/demoAccounts';
 import { UserRole } from '../../types';
 import authService from '../../services/authService';
 
@@ -32,8 +31,8 @@ export const LoginPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
   // Login form state
-  const [email, setEmail] = useState(DEMO_ACCOUNTS[initialRole]?.email || '');
-  const [password, setPassword] = useState(DEMO_ACCOUNTS[initialRole]?.password || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,12 +53,11 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, role]);
 
-  // When role selection changes, pre-fill credentials for demo
+  // Role selection controls the registration persona, not login credentials.
   const handleRoleSelect = (r: UserRole) => {
     setSelectedRole(r);
-    const demo = DEMO_ACCOUNTS[r];
-    setEmail(demo.email);
-    setPassword(demo.password);
+    setEmail('');
+    setPassword('');
     if (r === 'GOVERNMENT') setRegServiceId('GOV-VERIFIED-001');
     if (r === 'EVALUATOR') setRegServiceId('EVAL-VERIFIED-001');
   };
@@ -96,8 +94,15 @@ export const LoginPage: React.FC = () => {
       success('Authentication successful', `Welcome back, ${user.name}`);
       redirectUser(user.role);
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Invalid email or password. Please verify credentials.';
-      error('Sign in failed', msg);
+      if (selectedRole !== 'ADMIN') {
+        setRegEmail(email.trim());
+        setPassword('');
+        setActiveTab('register');
+        error('Account not registered', 'Please sign up first. The registration form is ready below.');
+      } else {
+        const msg = err.response?.data?.detail || 'Invalid email or password. Please verify your credentials.';
+        error('Sign in failed', msg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -203,20 +208,6 @@ export const LoginPage: React.FC = () => {
             })}
           </div>
 
-          {/* Active Role Demo Info Tag */}
-          <div className="mt-4 p-2.5 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-blue-600 text-white rounded">
-                DEMO PRE-FILL
-              </span>
-              <span className="text-xs text-slate-700 font-medium truncate">
-                {DEMO_ACCOUNTS[selectedRole].label}
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-500 font-mono">
-              {DEMO_ACCOUNTS[selectedRole].email}
-            </span>
-          </div>
         </div>
 
         {/* Auth Form Card */}
@@ -262,7 +253,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="official@domain.gov"
+                    placeholder="Enter your email address"
                     className="block w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue focus:border-transparent outline-none"
                   />
                 </div>
@@ -281,7 +272,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     className="block w-full pl-9 pr-9 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-gov-blue focus:border-transparent outline-none"
                   />
                   <button
@@ -311,13 +302,6 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* DEMO Quick Helper */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Demo Password: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">Password123!</code></span>
-                <span className="text-gov-blue cursor-pointer hover:underline" onClick={() => handleRoleSelect(selectedRole)}>
-                  Reset Demo Creds
-                </span>
-              </div>
             </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
