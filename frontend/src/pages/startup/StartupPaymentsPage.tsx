@@ -71,10 +71,10 @@ export const StartupPaymentsPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Prototype Demo Banner */}
+          {/* Prototype payment banner */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
             <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
-            <span>Prototype Layer • Demo Transactions</span>
+            <span>Prototype Layer • Milestone Transactions</span>
           </div>
         </div>
       </div>
@@ -148,7 +148,7 @@ export const StartupPaymentsPage: React.FC = () => {
                 <span>Target Date: {milestone.target_date}</span>
                 {milestone.transaction_ref && (
                   <span className="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                    Ref: {milestone.transaction_ref} (Demo)
+                    Ref: {milestone.transaction_ref}
                   </span>
                 )}
               </div>

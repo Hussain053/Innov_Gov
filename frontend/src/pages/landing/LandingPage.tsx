@@ -146,7 +146,7 @@ export const LandingPage: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-gov-blue border border-blue-200 mb-6 shadow-sm">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            <span>Smart India Hackathon 2024–2026 • Problem 26136</span>
+            <span>Smart India Hackathon 2026 • Problem 26136</span>
           </div>
 
           {/* Headline */}
@@ -171,21 +171,21 @@ export const LandingPage: React.FC = () => {
               to="/login"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-gov-navy text-white hover:bg-slate-800 shadow-elevated transition-all"
             >
-              <span>Login to Platform</span>
+              <span>Register</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="#workflow"
+            <Link
+              to="/sih-evaluator-guide"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm transition-all"
             >
-              <span>Explore 6-Stage Workflow</span>
-            </a>
+              <span>SIH Evaluator Guide</span>
+            </Link>
           </div>
 
-          {/* Demo Persona Quick-Cards */}
+          {/* Role access cards */}
           <div className="mt-14 pt-8 border-t border-slate-200/80">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
-              Select Demo Role for Evaluation
+              Select Role for Evaluation
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-5xl mx-auto text-left">
               {(['STARTUP', 'GOVERNMENT', 'EVALUATOR', 'ADMIN'] as const).map((r) => {
