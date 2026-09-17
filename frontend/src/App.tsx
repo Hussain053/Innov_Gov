@@ -9,6 +9,7 @@ import { RoleGate } from './components/common/RoleGate';
 // Public Pages
 import { LandingPage } from './pages/landing/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
+import { SihEvaluatorGuidePage } from './pages/guide/SihEvaluatorGuidePage';
 
 // Common Authenticated Pages
 import { NotificationsPage } from './pages/common/NotificationsPage';
@@ -85,6 +86,7 @@ export const App: React.FC = () => {
     <Routes>
       {/* Public Pages */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/sih-evaluator-guide" element={<SihEvaluatorGuidePage />} />
       <Route
         path="/login"
         element={isAuthenticated() ? <Navigate to={getDefaultPortal()} replace /> : <LoginPage />}

@@ -174,12 +174,12 @@ export const LandingPage: React.FC = () => {
               <span>Register</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="#workflow"
+            <Link
+              to="/sih-evaluator-guide"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm transition-all"
             >
               <span>How Our Platform Works 🎓</span>
-            </a>
+            </Link>
           </div>
 
           {/* Demo Persona Quick-Cards */}
