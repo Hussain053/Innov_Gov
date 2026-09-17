@@ -59,6 +59,7 @@ const stages = [
 const roleSteps = [
   {
     title: 'Government',
+    sectionLabel: 'Government Portal',
     description: 'Creates the challenge and takes procurement decisions.',
     icon: Building2,
     color: 'text-blue-700 bg-blue-50 border-blue-200',
@@ -71,6 +72,7 @@ const roleSteps = [
   },
   {
     title: 'Startup',
+    sectionLabel: 'Startup Portal',
     description: 'Presents an eligible solution and delivers the pilot.',
     icon: Rocket,
     color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -83,6 +85,7 @@ const roleSteps = [
   },
   {
     title: 'Evaluator',
+    sectionLabel: 'Evaluator Portal',
     description: 'Independently validates evidence and scores pilot performance.',
     icon: Award,
     color: 'text-violet-700 bg-violet-50 border-violet-200',
@@ -95,6 +98,7 @@ const roleSteps = [
   },
   {
     title: 'Admin',
+    sectionLabel: 'Admin Portal',
     description: 'Governs trust, access, and platform-wide accountability.',
     icon: Settings,
     color: 'text-amber-700 bg-amber-50 border-amber-200',
@@ -161,6 +165,53 @@ export const SihEvaluatorGuidePage: React.FC = () => {
                   <LockKeyhole className="w-4 h-4 text-gov-blue" /> Problem Statement ID: 26136
                 </span>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-slate-50 border-b border-slate-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+            <div className="max-w-2xl mb-10">
+              <p className="text-xs font-bold uppercase tracking-wider text-gov-blue">Role-based platform guide</p>
+              <h2 className="mt-3 text-3xl font-extrabold text-gov-navy">Four portals, one accountable workflow</h2>
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                Each portal has a defined responsibility in the journey from public challenge to validated innovation.
+              </p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-5">
+              {roleSteps.map((roleStep) => {
+                const Icon = roleStep.icon;
+                return (
+                  <article
+                    key={roleStep.title}
+                    aria-labelledby={`${roleStep.title.toLowerCase()}-portal-heading`}
+                    className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${roleStep.color}`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-gov-blue">{roleStep.sectionLabel}</p>
+                        <h3 id={`${roleStep.title.toLowerCase()}-portal-heading`} className="mt-1 text-xl font-extrabold text-gov-navy">
+                          {roleStep.title} steps
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-600">{roleStep.description}</p>
+                      </div>
+                    </div>
+                    <ol className="mt-5 space-y-3">
+                      {roleStep.steps.map((step, index) => (
+                        <li key={step} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed">
+                          <span className="flex w-6 h-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-gov-blue">
+                            {index + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
