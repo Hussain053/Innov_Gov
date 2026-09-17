@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Building2,
@@ -93,12 +93,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   const roleBadge = getRoleBadge(role);
+  const roleHome =
+    role === 'STARTUP'
+      ? '/startup'
+      : role === 'GOVERNMENT'
+      ? '/government'
+      : role === 'EVALUATOR'
+      ? '/evaluator'
+      : '/admin';
 
   return (
     <aside className="w-64 bg-gov-navy text-white flex flex-col h-full border-r border-slate-800 select-none">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80">
-        <div className="flex items-center gap-2.5">
+        <Link
+          to={roleHome}
+          onClick={onCloseMobile}
+          className="flex items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          aria-label="Go to portal home"
+        >
           <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-gov-blue to-blue-400 flex items-center justify-center font-bold text-lg text-white shadow-sm">
             IG
           </div>
@@ -111,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </div>
             <p className="text-[11px] text-slate-400 leading-none mt-1">Public Procurement Innovation</p>
           </div>
-        </div>
+        </Link>
 
         {/* User Mini Profile */}
         <div className="mt-4 p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
